@@ -1,0 +1,231 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EBR Theme Data Schema",
+  "description": "JSON schema for EBR deck theme data structures",
+
+  "definitions": {
+    "CoverData": {
+      "type": "object",
+      "required": ["title", "subtitle"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Main title (e.g., 'NORTHSTAR / CLIENT BUSINESS REVIEW')",
+          "maxLength": 100
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "Review period and scope (e.g., 'M1 leadership review 2026-08-01 to 2026-08-31')",
+          "maxLength": 150
+        }
+      }
+    },
+
+    "PerformanceData": {
+      "type": "object",
+      "required": ["kicker", "title", "subtitle", "metrics", "statement", "conclusion", "footer"],
+      "properties": {
+        "kicker": {
+          "type": "string",
+          "description": "Purple label at top (e.g., 'NORTHSTAR / CLIENT BUSINESS REVIEW')"
+        },
+        "title": {
+          "type": "string",
+          "description": "Large headline (e.g., 'The flagship delivers operational value')"
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "Gray subtitle with period/scope"
+        },
+        "metrics": {
+          "type": "array",
+          "description": "Three metrics with underlines",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "array",
+            "items": [
+              {
+                "type": "string",
+                "description": "Value (e.g., '70%', '+12 pts')"
+              },
+              {
+                "type": "string",
+                "description": "Label (e.g., 'Tier-1 volume handled')"
+              },
+              {
+                "type": "string",
+                "description": "Context (e.g., 'Reported in the case brief')"
+              }
+            ]
+          }
+        },
+        "statement": {
+          "type": "string",
+          "description": "Bold statement below metrics (e.g., '97,488 automated tickets demonstrate...')"
+        },
+        "conclusion": {
+          "type": "string",
+          "description": "Body paragraph explaining the data"
+        },
+        "conclusion_box": {
+          "type": "string",
+          "description": "Gray box conclusion (e.g., 'First assess flagship benefits...')"
+        },
+        "footer": {
+          "type": "string",
+          "description": "Small gray footer with source/caveats"
+        }
+      }
+    },
+
+    "CostData": {
+      "type": "object",
+      "required": ["kicker", "title", "subtitle", "chart_annotation", "table_headers", "table_rows", "conclusion", "footer"],
+      "properties": {
+        "kicker": {"type": "string"},
+        "title": {"type": "string"},
+        "subtitle": {"type": "string"},
+        "chart_data": {
+          "type": ["array", "null"],
+          "description": "Optional: (x, y) points for line chart. Can be null for placeholder.",
+          "items": {
+            "type": "array",
+            "items": [
+              {"type": "number"},
+              {"type": "number"}
+            ]
+          }
+        },
+        "chart_annotation": {
+          "type": "string",
+          "description": "Bold text below chart (e.g., 'Requests +44.6%; mean daily P95 -20.1%')"
+        },
+        "table_headers": {
+          "type": "array",
+          "description": "Table column headers",
+          "items": {"type": "string"}
+        },
+        "table_rows": {
+          "type": "array",
+          "description": "Table data rows",
+          "items": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        },
+        "conclusion": {
+          "type": "string",
+          "description": "Gray box conclusion"
+        },
+        "footer": {"type": "string"}
+      }
+    },
+
+    "ReadinessData": {
+      "type": "object",
+      "required": ["kicker", "title", "subtitle", "table_headers", "phases", "note", "conclusion", "footer"],
+      "properties": {
+        "kicker": {"type": "string"},
+        "title": {"type": "string"},
+        "subtitle": {"type": "string"},
+        "table_headers": {
+          "type": "array",
+          "description": "Column headers (typically 4)",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {"type": "string"}
+        },
+        "phases": {
+          "type": "array",
+          "description": "Phase rows (up to 4)",
+          "maxItems": 4,
+          "items": {
+            "type": "array",
+            "description": "Each row as array of cells matching header count",
+            "items": {"type": "string"}
+          }
+        },
+        "note": {
+          "type": "string",
+          "description": "Italic purple note below table (e.g., '*Readiness gates govern each window...')"
+        },
+        "conclusion": {"type": "string"},
+        "footer": {"type": "string"}
+      }
+    },
+
+    "DecisionsData": {
+      "type": "object",
+      "required": ["kicker", "title", "subtitle", "decision_boxes", "timeline", "owners", "conclusion", "footer"],
+      "properties": {
+        "kicker": {"type": "string"},
+        "title": {"type": "string"},
+        "subtitle": {"type": "string"},
+        "decision_boxes": {
+          "type": "array",
+          "description": "Left column: decision criteria boxes (typically 3)",
+          "items": {
+            "type": "array",
+            "items": [
+              {
+                "type": "string",
+                "description": "Heading (purple, bold)"
+              },
+              {
+                "type": "string",
+                "description": "Body text"
+              }
+            ]
+          }
+        },
+        "timeline": {
+          "type": "array",
+          "description": "Right column: timeline rows",
+          "items": {
+            "type": "array",
+            "items": [
+              {
+                "type": "string",
+                "description": "When (e.g., 'By Day 7')"
+              },
+              {
+                "type": "string",
+                "description": "What (e.g., 'Agree customer service needs')"
+              }
+            ]
+          }
+        },
+        "owners": {
+          "type": "string",
+          "description": "Italic owners line (e.g., 'Owners: VP CX and VP Engineering...')"
+        },
+        "conclusion": {"type": "string"},
+        "footer": {"type": "string"}
+      }
+    }
+  },
+
+  "type": "object",
+  "required": ["cover", "performance"],
+  "properties": {
+    "cover": {
+      "$ref": "#/definitions/CoverData"
+    },
+    "performance": {
+      "$ref": "#/definitions/PerformanceData"
+    },
+    "cost": {
+      "description": "OPTIONAL: Only include when cost analysis is the story",
+      "$ref": "#/definitions/CostData"
+    },
+    "readiness": {
+      "description": "OPTIONAL: Only include when planning expansion",
+      "$ref": "#/definitions/ReadinessData"
+    },
+    "decisions": {
+      "description": "OPTIONAL: Only include when decisions framework needed",
+      "$ref": "#/definitions/DecisionsData"
+    }
+  }
+}

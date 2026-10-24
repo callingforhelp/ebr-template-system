@@ -1,0 +1,110 @@
+{
+  "cover": {
+    "title": "NORTHSTAR / CLIENT BUSINESS REVIEW",
+    "subtitle": "M1 Northstar leadership review 2026-08-01 to 2026-08-31"
+  },
+
+  "performance": {
+    "kicker": "NORTHSTAR / CLIENT BUSINESS REVIEW",
+    "title": "The flagship delivers operational value; establish its full return",
+    "subtitle": "M1 Northstar leadership review 2026-08-01 to 2026-08-31",
+    "metrics": [
+      ["70%", "Tier-1 volume handled", "Reported in the case brief"],
+      ["35%", "Lower average handle time", "Reported versus the pre-launch baseline"],
+      ["+12 pts", "CSAT improvement", "Reported versus the pre-launch baseline"]
+    ],
+    "statement": "97,488 automated tickets demonstrate a meaningful operating footprint",
+    "body": "The CSV records 789,563 model requests and 68.0% automation across the month. The final week reached 70.1% automation, compared with 65.8% in the opening week. The operating opportunity is to absorb routine demand while experienced staff handle exceptions.",
+    "conclusion": "First assess flagship benefits against implementation and ongoing costs. Use that evidence to decide whether expansion is worth funding.",
+    "footer": "Source: supplied Northstar case brief and synthetic daily metrics. Reporting period 2026-08-01 to 2026-08-31. The reported handle-time and CSAT benefits come from the brief. Daily data establish in-month progress, not a new pre/post study. Automation counts do not establish verified resolution."
+  },
+
+  "cost": {
+    "kicker": "NORTHSTAR / CLIENT BUSINESS REVIEW",
+    "title": "Model traffic grew; cost per automated ticket rose",
+    "subtitle": "M2 Opening 7 days versus final 7 days 2026-08-01–2026-08-07 and 2026-08-25–2026-08-31",
+    "chart_data": null,
+    "chart_annotation": "Requests +44.6%; mean daily P95 -20.1%",
+    "table_headers": ["Measure", "Opening", "Final"],
+    "table_rows": [
+      ["Model requests", "145,601", "210,467"],
+      ["Automation", "65.8%", "70.1%"],
+      ["Availability", "99.8236%", "99.8997%"],
+      ["Request errors", "1.26%", "0.72%"],
+      ["Grounding / evaluation", "92.2 / 91.4%", "96.0 / 94.8%"],
+      ["Escalation", "14.2%", "11.5%"]
+    ],
+    "conclusion": "Recorded spend: $1,213.12; full operating cost is not yet established. Set owners and deadlines for remaining issues, then prioritize improvements by customer benefit and cost.",
+    "footer": "Operational notes in the CSV provide incident context. Proposed controls: atomic policy releases and peak-load tests. Errors are request-weighted, automation uses ticket counts; other rates and latency quantiles are daily means. Spend is treated as inference for planning, not total support cost."
+  },
+
+  "readiness": {
+    "kicker": "NORTHSTAR / CLIENT BUSINESS REVIEW",
+    "title": "Essentials' value proposition favors fast, efficient support",
+    "subtitle": "M3 / M4 Expansion hypotheses Earliest windows from approved kickoff",
+    "table_headers": [
+      "Brand / earliest window",
+      "Customer / price proposition",
+      "AI and human service",
+      "Evidence to advance"
+    ],
+    "phases": [
+      [
+        "Essentials\nWeeks 1-4",
+        "Value-conscious everyday shoppers; affordable products.",
+        "Fast, low-effort resolution; bot-led routine support with human exceptions.",
+        "Policy owner signs off; isolation and peak-load tests pass."
+      ],
+      [
+        "Style\nWeeks 5-8*",
+        "Fashion shoppers; accessible pricing and promotional choice.",
+        "Confidence in fit and exchanges; automate facts, assist on exceptions.",
+        "Fresh catalog and exception tests pass; operations lead accepts the workflow."
+      ],
+      [
+        "Home\nWeeks 9-12*",
+        "Considered home-goods buyers; higher purchase commitment.",
+        "Suitability and delivery confidence; system lookups plus specialists.",
+        "Read-only connectors pass; data freshness and fallback have named owners."
+      ],
+      [
+        "Luxe\nWeeks 13-16*",
+        "Premium shoppers; personalized service is part of the proposition.",
+        "Discretion and continuity; concierge-led service with AI assistance.",
+        "Concierge owner accepts assist scope, policy boundaries and quality results."
+      ]
+    ],
+    "note": "*Readiness gates govern each window. Luxe is assist-only. Reorder if another brand offers better value and readiness.",
+    "conclusion": "One live pilot at a time; preparation runs in parallel. Week 4 acceptance is provisional until final recontacts mature in Week 5; unmet gates shift dates.",
+    "footer": "Source: scenario brand profiles. Customer preferences, pricing positions and windows are assumptions; the flagship CSV contains no brand-level customer research. Test acceptance, eligible demand and full cost before scaling."
+  },
+
+  "decisions": {
+    "kicker": "NORTHSTAR / CLIENT BUSINESS REVIEW",
+    "title": "Confirm flagship value, then authorize a bounded pilot",
+    "subtitle": "M5 Proposed decisions Days start at this review; pilot weeks start at approved kickoff",
+    "decision_boxes": [
+      [
+        "Flagship value first",
+        "Compare verified support benefits with implementation, labor, integration and ongoing costs. Cash ROI and payback are not yet established."
+      ],
+      [
+        "Pilot success",
+        "Seven representative days meeting agreed response, completion and CSAT limits versus matched manual support; no severe unresolved policy/isolation failure. Final recontacts mature in Week 5."
+      ],
+      [
+        "Conditional Essentials pilot",
+        "Routine order, product and policy support; a 20,000-ticket ceiling. Stage traffic only after policy, quality and fallback checks pass."
+      ]
+    ],
+    "timeline": [
+      ["By Day 7", "Agree customer service needs; assign owners for the flagship benefit and full-cost assessment"],
+      ["By Day 14", "Validate catalog and peak-load safeguards; explain rising requests per ticket"],
+      ["By Day 28", "Review flagship value and sustained service; decide whether to fund Essentials"],
+      ["At any time", "Escalate missed commitments; act immediately on material customer harm"]
+    ],
+    "owners": "Owners: Northstar VP CX and VP Engineering. The Fireworks delivery lead owns integration. The policy owner signs off before live traffic.",
+    "conclusion": "Agree the owners and deadlines now. Fund the pilot when the flagship value assessment and Essentials readiness support the investment; extend review if evidence is insufficient.",
+    "footer": "All expansion brands, stakeholder roles, timing and commercial estimates are planning assumptions. Proposed dates are not existing commitments. Review at least seven representative days of service; elapsed time alone does not establish readiness. Pilot Week 4 acceptance is provisional; final recontacts mature in Week 5."
+  }
+}

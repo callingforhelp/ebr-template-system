@@ -1,0 +1,108 @@
+{
+  "name": "Clean EBR Template System",
+  "version": "2.0.0",
+  "description": "Modern clean-style Executive Business Review deck generator based on client-ready design",
+  "style": "clean_modern",
+
+  "design_tokens": {
+    "canvas": {
+      "width_inches": 13.3333,
+      "height_inches": 7.5,
+      "aspect_ratio": "16:9",
+      "margin_left_inches": 0.74,
+      "margin_right_inches": 0.74,
+      "margin_top_inches": 0.5
+    },
+    "colors": {
+      "primary": {
+        "purple": "#6A2D80",
+        "purple_light": "#9370B5"
+      },
+      "neutrals": {
+        "black": "#000000",
+        "gray_dark": "#4A4A4A",
+        "gray_mid": "#7A7A7A",
+        "gray_light": "#E8E8E8",
+        "white": "#FFFFFF"
+      }
+    },
+    "typography": {
+      "font_family": "Calibri",
+      "sizes": {
+        "kicker": 11,
+        "title": 32,
+        "subtitle": 13,
+        "metric_value": 56,
+        "metric_label": 16,
+        "body": 11,
+        "table_header": 11,
+        "conclusion": 13
+      }
+    },
+    "components": {
+      "metric_underline": {
+        "description": "Metric with purple underline (not card)",
+        "underline_width_pt": 2.0,
+        "underline_color": "purple"
+      },
+      "conclusion_box": {
+        "description": "Gray box with bold text (no label)",
+        "fill": "gray_light",
+        "text_bold": true
+      },
+      "table": {
+        "header_fill": "purple",
+        "header_text": "white",
+        "body_text": "black"
+      }
+    }
+  },
+
+  "themes": {
+    "essential": [
+      {
+        "name": "cover",
+        "description": "Simple cover with purple accent bar",
+        "required": true,
+        "order": 1
+      },
+      {
+        "name": "performance",
+        "description": "3 metrics with underlines + statement",
+        "required": true,
+        "order": 2
+      }
+    ],
+    "optional": [
+      {
+        "name": "cost",
+        "description": "Chart left, table right (only when cost is the story)",
+        "required": false,
+        "condition": "when_cost_analysis_needed"
+      },
+      {
+        "name": "readiness",
+        "description": "Phase table with gates (for expansion planning)",
+        "required": false,
+        "condition": "when_expansion_planned"
+      },
+      {
+        "name": "decisions",
+        "description": "Decision boxes + timeline",
+        "required": false,
+        "condition": "when_decisions_needed"
+      }
+    ]
+  },
+
+  "style_differences": {
+    "from_house_system": {
+      "background": "white (not dark surfaces)",
+      "accent_usage": "purple sparingly (not throughout)",
+      "metrics": "underlines (not mist cards)",
+      "conclusions": "gray boxes unlabeled (not purple with SO WHAT label)",
+      "whitespace": "generous (not dense)",
+      "typography": "lighter weight (not bold everywhere)"
+    }
+  }
+}
