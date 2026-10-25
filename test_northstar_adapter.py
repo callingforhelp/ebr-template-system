@@ -107,12 +107,22 @@ class TestNorthstarAdapter(unittest.TestCase):
         self.assertEqual(len(decisions.decision_boxes), 3)
         self.assertIn("Flagship assessment", decisions.decision_boxes[0][0])
 
-        # Verify timeline with commitment qualifications
+        # Verify timeline has summary (issue + owner only, readable)
         self.assertEqual(len(decisions.timeline), 3)
         self.assertIn("Week 1", decisions.timeline[0][0])
-        self.assertIn("Status:", decisions.timeline[0][1])
-        self.assertIn("Deadline:", decisions.timeline[0][1])
-        self.assertIn("Consequence:", decisions.timeline[0][1])
+        self.assertIn("Complete flagship cost analysis", decisions.timeline[0][1])  # Issue text
+        self.assertIn("Owner:", decisions.timeline[0][1])  # Owner in summary
+
+        # Verify qualifications are NOT in the visible timeline (moved to notes)
+        self.assertNotIn("Status:", decisions.timeline[0][1])
+        self.assertNotIn("Deadline:", decisions.timeline[0][1])
+        self.assertNotIn("Consequence:", decisions.timeline[0][1])
+
+        # Verify full commitment details in speaker notes
+        self.assertIn("Full commitment details:", decisions.notes)
+        self.assertIn("Status:", decisions.notes)
+        self.assertIn("Deadline:", decisions.notes)
+        self.assertIn("Consequence:", decisions.notes)
 
         # Verify speaker notes include fullGates
         self.assertIn("Full gates:", decisions.notes)

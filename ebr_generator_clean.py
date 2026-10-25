@@ -607,7 +607,7 @@ class CleanEBRThemes:
             slide.notes_slide.notes_text_frame.text = data.notes
 
     def decisions(self, data: DecisionsData, page_num: int):
-        """Decisions slide — boxes + timeline. FIX #4: Native timeline table."""
+        """Decisions slide — boxes + timeline. FIX #2: Readable summary with proper layout."""
         slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
         b = Builder(slide, self.T)
 
@@ -628,13 +628,21 @@ class CleanEBRThemes:
                   body, 10, False, self.T.black)
             box_y += 1.15
 
-        # Right: Timeline as native table
+        # Right: Timeline as native table with readable summary
         timeline_left = box_left + box_w + 0.5
         timeline_w = 11.8 - box_w - 0.5
 
+        # Limit timeline rows to fit available space (max 3 visible rows + header)
+        # Available vertical space: from 2.7" to conclusion box at 6.15" = 3.45"
+        # With 0.4" header + 0.3" owner note + margins = ~0.8" overhead
+        # Remaining: 2.65" for data rows
+        # With summary text (issue + owner only), 3 rows should fit comfortably
+        MAX_VISIBLE_ROWS = 3
+        visible_timeline = data.timeline[:MAX_VISIBLE_ROWS]
+
         # Prepare timeline table data
-        timeline_headers = ['When', 'Evidence & decision']
-        timeline_table_data = [timeline_headers] + list(data.timeline)
+        timeline_headers = ['When', 'Decision & Owner']
+        timeline_table_data = [timeline_headers] + list(visible_timeline)
 
         col_widths = [1.8, timeline_w - 1.8]
 
@@ -646,9 +654,10 @@ class CleanEBRThemes:
             header_fill=self.T.purple
         )
 
-        # Style "When" column cells (make them purple and bold)
+        # Style table cells for better readability
         if table:
             for r_idx in range(1, len(timeline_table_data)):  # Skip header
+                # Style "When" column (purple, bold)
                 when_cell = table.cell(r_idx, 0)
                 for paragraph in when_cell.text_frame.paragraphs:
                     for run in paragraph.runs:
@@ -656,25 +665,33 @@ class CleanEBRThemes:
                         run.font.bold = True
                         run.font.size = Pt(10)
 
-        # Calculate position for owners note
-        table_bottom = 2.7 + 0.4 + (len(data.timeline) * 0.72) + 0.1
+                # Style "What" column (smaller font for wrapped text)
+                what_cell = table.cell(r_idx, 1)
+                for paragraph in what_cell.text_frame.paragraphs:
+                    for run in paragraph.runs:
+                        run.font.size = Pt(9)  # Smaller for better fit
+
+        # Owners note positioned safely below expected table height
+        # With summary text (2 lines per row max), estimate 0.6" per row
+        # Header 0.4" + 3 rows * 0.6" + small gap = 2.4", so note at ~5.2"
+        owners_y = 5.2
 
         # Owners note
-        b.text(timeline_left, table_bottom, timeline_w, 0.3, data.owners,
+        b.text(timeline_left, owners_y, timeline_w, 0.3, data.owners,
               9, False, self.T.gray_dark, italic=True)
 
-        # Conclusion box
+        # Conclusion box (stays at 6.15)
         b.conclusion_box(data.conclusion, 6.15)
 
         b.footer(data.footer)
         b.page_num(page_num)
 
-        # Speaker notes
+        # Speaker notes contain full commitment details (already in data.notes from adapter)
         if data.notes:
             slide.notes_slide.notes_text_frame.text = data.notes
 
     def pipeline(self, data: PipelineData, page_num: int):
-        """Pipeline slide — brand rows with brand-fit evidence."""
+        """Pipeline slide — brand rows with brand-fit evidence. FIX #1: Native table."""
         slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
         b = Builder(slide, self.T)
 
@@ -682,23 +699,26 @@ class CleanEBRThemes:
         b.title(data.title)
         b.subtitle(data.subtitle)
 
-        # Grid of brand rows
-        start_y = 2.65
-        row_height = 0.75
+        # Native table for brand rows
+        table_left = self.T.margin_left
+        table_top = 2.65
         col_widths = [2.0, 3.8, 3.8, 2.0]  # Brand, Proposition, Service, Evidence
 
-        for i, row in enumerate(data.rows):
-            y_pos = start_y + (i * row_height)
-            x_pos = self.T.margin_left
+        # Prepare table data: headers + rows
+        table_data = [data.table_headers] + data.rows
 
-            # Each column from the row
-            for col_idx, cell_value in enumerate(row):
-                b.text(x_pos, y_pos, col_widths[col_idx], row_height, cell_value,
-                      self.T.body_size, col_idx == 0, self.T.black)  # Bold first column (brand name)
-                x_pos += col_widths[col_idx]
+        # Create native table
+        b.native_table(
+            table_left, table_top,
+            table_data,
+            col_widths=col_widths,
+            header_fill=self.T.purple
+        )
 
-        # Conclusion box
-        b.conclusion_box(data.conclusion, 6.15)
+        # Conclusion box (positioned below table with spacing)
+        # 4 data rows + 1 header = 5 rows * 0.4 inch row height = 2.0 inches
+        # Plus top position 2.65 + small gap = ~4.8
+        b.conclusion_box(data.conclusion, 4.9)
 
         b.footer(data.footer)
         b.page_num(page_num)
