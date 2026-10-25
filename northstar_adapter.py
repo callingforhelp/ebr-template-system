@@ -231,11 +231,14 @@ class NorthstarAdapter:
 
     def _convert_pipeline(self, slide: Dict) -> PipelineData:
         """Convert pipeline slide to PipelineData (brand rows + evidence)."""
-        # Extract brand rows - convert to table format
-        table_headers = ['Brand', 'Proposition', 'Service Model', 'Brand-Fit Evidence']
-        rows = []
+        # Extract brand rows from table structure (Northstar supplies table.headers and table.rows)
+        table_data = slide.get('table', {})
+        table_headers = table_data.get('headers', [])
+        rows = table_data.get('rows', [])
 
-        if 'brands' in slide:
+        # Fallback: if 'brands' array exists (legacy structure), convert it
+        if not rows and 'brands' in slide:
+            table_headers = ['Brand', 'Proposition', 'Service Model', 'Brand-Fit Evidence']
             for brand in slide['brands']:
                 rows.append([
                     brand.get('name', ''),
@@ -285,26 +288,34 @@ class NorthstarAdapter:
 
         # Extract timeline from commitments/actions
         timeline = []
+        full_commitments = []  # Full details for notes
 
         if 'commitments' in slide:
             for commit in slide['commitments']:
                 when = commit.get('proposedDueDate', '')
-                what_parts = [commit.get('issue', '')]
 
-                # Map commitment qualifications (fix: status, deadline, consequence)
-                if commit.get('status'):
-                    what_parts.append(f"Status: {commit['status']}")
-                if commit.get('deadline'):
-                    what_parts.append(f"Deadline: {commit['deadline']}")
-                if commit.get('consequence'):
-                    what_parts.append(f"Consequence: {commit['consequence']}")
+                # Display version: issue + owner only (readable summary)
+                display_parts = [commit.get('issue', '')]
                 if commit.get('owner'):
-                    what_parts.append(f"Owner: {commit['owner']}")
-                if commit.get('evidence'):
-                    what_parts.append(f"Evidence: {commit['evidence']}")
+                    display_parts.append(f"Owner: {commit['owner']}")
+                display_text = '\n'.join(display_parts)
+                timeline.append((when, display_text))
 
-                what = '\n'.join(what_parts)
-                timeline.append((when, what))
+                # Full version for notes: all qualifications
+                full_parts = [commit.get('issue', '')]
+                if commit.get('status'):
+                    full_parts.append(f"Status: {commit['status']}")
+                if commit.get('deadline'):
+                    full_parts.append(f"Deadline: {commit['deadline']}")
+                if commit.get('consequence'):
+                    full_parts.append(f"Consequence: {commit['consequence']}")
+                if commit.get('owner'):
+                    full_parts.append(f"Owner: {commit['owner']}")
+                if commit.get('evidence'):
+                    full_parts.append(f"Evidence: {commit['evidence']}")
+
+                full_text = '\n'.join(full_parts)
+                full_commitments.append((when, full_text))
 
         elif 'actions' in slide:
             for action in slide['actions']:
@@ -313,6 +324,7 @@ class NorthstarAdapter:
                 if action.get('owner'):
                     what += f"\nOwner: {action['owner']}"
                 timeline.append((when, what))
+                full_commitments.append((when, what))
 
         elif 'table' in slide:
             # Fallback: extract from table
@@ -320,6 +332,7 @@ class NorthstarAdapter:
             for row in table.get('rows', []):
                 if len(row) >= 2:
                     timeline.append((row[0], row[1]))
+                    full_commitments.append((row[0], row[1]))
 
         # Extract owners
         owners = ''
@@ -327,10 +340,18 @@ class NorthstarAdapter:
             owner_list = list(set(c.get('owner', '') for c in slide['commitments'] if c.get('owner')))
             owners = ', '.join(owner_list)
 
-        # Extract talking points for speaker notes + fullGates
+        # Extract talking points for speaker notes + fullGates + full commitment details
         notes_parts = []
         if slide.get('talkingPoint'):
             notes_parts.append(slide['talkingPoint'])
+
+        # Add full commitment details to notes
+        if full_commitments:
+            full_details = "Full commitment details:\n\n"
+            for when, what in full_commitments:
+                full_details += f"{when}:\n{what}\n\n"
+            notes_parts.append(full_details.strip())
+
         if slide.get('fullGates') and slide['fullGates']:
             notes_parts.append("Full gates:\n" + '\n'.join(f"• {gate}" for gate in slide['fullGates']))
 
