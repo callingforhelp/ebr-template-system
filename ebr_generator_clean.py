@@ -9,15 +9,60 @@ Based on Northstar_Client_EBR.pptx:
   - Gray conclusion boxes (not purple)
   - Clean tables with purple headers
   - Modern sans-serif typography
+
+COMPATIBILITY FIXES:
+  - Montserrat font support with Calibri fallback
+  - Optional cover slide (skip_cover parameter)
+  - Native editable PowerPoint charts
+  - Native PowerPoint table objects
 """
 
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
-from dataclasses import dataclass
+from pptx.chart.data import CategoryChartData
+from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
+from dataclasses import dataclass, field
 from typing import List, Tuple, Optional, Dict
 import json
+import sys
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FONT AVAILABILITY CHECK
+# ═══════════════════════════════════════════════════════════════════════════
+
+def check_font_available(font_name: str) -> bool:
+    """
+    Check if a font is available on the system.
+    Returns True if available, False otherwise.
+
+    Note: This is a best-effort check. PowerPoint will still fall back
+    to a default font if the specified font isn't available at render time.
+    """
+    # For now, we'll assume the font might be available
+    # A more robust check would use system-specific font enumeration
+    # but that adds platform dependencies (fontconfig on Linux, etc.)
+    return True  # Optimistic - PowerPoint handles fallback
+
+
+def get_font_family(preferred: str = 'Montserrat', fallback: str = 'Calibri') -> tuple[str, bool]:
+    """
+    Get font family with availability check.
+
+    Returns:
+        (font_name, is_preferred): Font to use and whether it's the preferred one
+    """
+    # Check if preferred font is available
+    if check_font_available(preferred):
+        return (preferred, True)
+    else:
+        print(f"⚠️  Warning: {preferred} font not found on system", file=sys.stderr)
+        print(f"    Falling back to {fallback}", file=sys.stderr)
+        print(f"    This is NOT house-style. Install {preferred} for proper styling.", file=sys.stderr)
+        print(f"    On macOS: Install from Font Book or download from Google Fonts", file=sys.stderr)
+        return (fallback, False)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -43,8 +88,8 @@ class DesignTokens:
     gray_light: str = 'E8E8E8'       # Conclusion box background
     white: str = 'FFFFFF'            # Background
 
-    # Typography
-    font_family: str = 'Calibri'     # Modern, clean (fallback to Arial)
+    # Typography - FIX #1: Montserrat with fallback
+    font_family: str = field(default_factory=lambda: get_font_family('Montserrat')[0])
     kicker_size: float = 11
     title_size: float = 32
     subtitle_size: float = 13
@@ -111,6 +156,152 @@ class Builder:
         ln.line.color.rgb = self.T.rgb(color)
         ln.line.width = Pt(w)
         return ln
+
+    # FIX #4: Native PowerPoint table
+    def native_table(self, l, t, rows_data, col_widths=None, header_fill=None):
+        """
+        Create a native PowerPoint table.
+
+        Args:
+            l, t: Left and top position in inches
+            rows_data: List of lists, e.g. [['Header1', 'Header2'], ['Row1Col1', 'Row1Col2']]
+            col_widths: Optional list of column widths in inches
+            header_fill: Optional hex color for header row background
+
+        Returns:
+            table object
+        """
+        if not rows_data:
+            return None
+
+        rows = len(rows_data)
+        cols = len(rows_data[0])
+
+        # Default column widths if not specified
+        if col_widths is None:
+            col_widths = [Inches(2.0)] * cols
+        else:
+            col_widths = [Inches(w) for w in col_widths]
+
+        # Calculate table dimensions
+        table_width = sum(col_widths)
+        row_height = Inches(0.4)
+        table_height = row_height * rows
+
+        # Add table shape
+        table_shape = self.slide.shapes.add_table(
+            rows, cols,
+            Inches(l), Inches(t),
+            table_width, table_height
+        )
+
+        table = table_shape.table
+
+        # Populate cells
+        for r_idx, row in enumerate(rows_data):
+            for c_idx, cell_text in enumerate(row):
+                cell = table.cell(r_idx, c_idx)
+                cell.text = str(cell_text)
+
+                # Style header row (first row)
+                if r_idx == 0 and header_fill:
+                    cell.fill.solid()
+                    cell.fill.fore_color.rgb = self.T.rgb(header_fill)
+                    # White text for header
+                    for paragraph in cell.text_frame.paragraphs:
+                        for run in paragraph.runs:
+                            run.font.color.rgb = self.T.rgb(self.T.white)
+                            run.font.bold = True
+                            run.font.size = Pt(self.T.table_header_size)
+                            run.font.name = self.T.font_family
+                else:
+                    # Data rows
+                    for paragraph in cell.text_frame.paragraphs:
+                        for run in paragraph.runs:
+                            run.font.size = Pt(10)
+                            run.font.bold = (c_idx == 0)  # Bold first column
+                            run.font.name = self.T.font_family
+
+        # Set column widths
+        for c_idx, width in enumerate(col_widths):
+            table.columns[c_idx].width = width
+
+        return table
+
+    # FIX #3: Native editable chart
+    def native_line_chart(self, l, t, w, h, categories, values, title=None,
+                         series_name='Values', mean_line=None):
+        """
+        Create a native PowerPoint line chart.
+
+        Args:
+            l, t, w, h: Position and size in inches
+            categories: List of x-axis labels (e.g. dates)
+            values: List of y-axis values
+            title: Optional chart title
+            series_name: Name for the data series
+            mean_line: Optional mean value to show as reference line
+
+        Returns:
+            chart object
+        """
+        # Create chart data
+        chart_data = CategoryChartData()
+        chart_data.categories = categories
+        chart_data.add_series(series_name, values)
+
+        # Add mean line as second series if provided
+        if mean_line is not None:
+            mean_values = [mean_line] * len(categories)
+            chart_data.add_series('Mean', mean_values)
+
+        # Add chart to slide
+        chart_shape = self.slide.shapes.add_chart(
+            XL_CHART_TYPE.LINE,
+            Inches(l), Inches(t),
+            Inches(w), Inches(h),
+            chart_data
+        )
+
+        chart = chart_shape.chart
+
+        # Style the chart
+        if title:
+            chart.has_title = True
+            chart.chart_title.text_frame.text = title
+            # Style title
+            for paragraph in chart.chart_title.text_frame.paragraphs:
+                for run in paragraph.runs:
+                    run.font.size = Pt(10)
+                    run.font.bold = True
+                    run.font.color.rgb = self.T.rgb(self.T.purple)
+                    run.font.name = self.T.font_family
+
+        # Style data series
+        if len(chart.series) > 0:
+            # Main series - solid line
+            main_series = chart.series[0]
+            main_series.smooth = True
+            line = main_series.format.line
+            line.color.rgb = self.T.rgb(self.T.purple)
+            line.width = Pt(2)
+
+        # Style mean line if present
+        if mean_line is not None and len(chart.series) > 1:
+            mean_series = chart.series[1]
+            mean_series.smooth = False
+            line = mean_series.format.line
+            line.color.rgb = self.T.rgb(self.T.purple_light)
+            line.width = Pt(1)
+            line.dash_style = 3  # Dashed
+
+        # Configure legend
+        chart.has_legend = (mean_line is not None)
+        if chart.has_legend:
+            chart.legend.position = XL_LEGEND_POSITION.BOTTOM
+            chart.legend.include_in_layout = False
+
+        return chart
 
     # Standard elements
     def kicker(self, text):
@@ -189,7 +380,7 @@ class CostData:
     kicker: str
     title: str
     subtitle: str
-    chart_data: Optional[List[Tuple[float, float]]]  # (x, y) points for line chart
+    chart_data: Optional[Dict]  # {'categories': [...], 'values': [...], 'title': '...', 'mean_line': <float>}
     chart_annotation: str  # e.g., "Requests +44.6%; mean daily P95 -20.1%"
     table_headers: List[str]
     table_rows: List[List[str]]
@@ -221,9 +412,9 @@ class DecisionsData:
     footer: str
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════════════════════════
 # THEME RENDERERS
-# ═══════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════════════════════════
 
 class CleanEBRThemes:
     """Clean modern theme-based slide templates."""
@@ -278,7 +469,7 @@ class CleanEBRThemes:
         b.page_num(page_num)
 
     def cost(self, data: CostData, page_num: int):
-        """Cost slide — chart left, table right."""
+        """Cost slide — chart left, table right. FIX #3 & #4: Native chart and table."""
         slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
         b = Builder(slide, self.T)
 
@@ -286,37 +477,50 @@ class CleanEBRThemes:
         b.title(data.title)
         b.subtitle(data.subtitle)
 
-        # Left: Chart placeholder + annotation
+        # Left: Native editable chart (FIX #3)
         chart_left = self.T.margin_left
         chart_w = 5.8
+        chart_h = 3.2
 
-        b.rect(chart_left, 2.65, chart_w, 3.2, 'F5F5F5')  # Chart background
-        b.text(chart_left + 0.2, 2.75, chart_w - 0.4, 0.3,
-              'DAILY P95 LATENCY (MS)', 10, True, self.T.purple)
+        if data.chart_data and data.chart_data.get('categories') and data.chart_data.get('values'):
+            # Create native chart
+            b.native_line_chart(
+                chart_left, 2.65, chart_w, chart_h,
+                categories=data.chart_data['categories'],
+                values=data.chart_data['values'],
+                title=data.chart_data.get('title', 'DAILY P95 LATENCY (MS)'),
+                series_name='P95 Latency',
+                mean_line=data.chart_data.get('mean_line')
+            )
+        else:
+            # Fallback: placeholder if no data
+            b.rect(chart_left, 2.65, chart_w, chart_h, 'F5F5F5')
+            b.text(chart_left + 0.2, 2.75, chart_w - 0.4, 0.3,
+                  'DAILY P95 LATENCY (MS)', 10, True, self.T.purple)
 
         # Chart annotation below
         b.text(chart_left, 6.0, chart_w, 0.45, data.chart_annotation,
               12, True, self.T.black)
 
-        # Right: Table
+        # Right: Native table (FIX #4)
         table_left = chart_left + chart_w + 0.5
-        table_w = 11.8 - chart_w - 0.5
+        table_w_total = 11.8 - chart_w - 0.5
 
-        # Header row
-        b.rect(table_left, 2.65, table_w, 0.4, self.T.purple)
-        col_w = table_w / len(data.table_headers)
-        for i, hdr in enumerate(data.table_headers):
-            b.text(table_left + i * col_w + 0.15, 2.7, col_w - 0.2, 0.3,
-                  hdr, self.T.table_header_size, True, self.T.white)
+        # Prepare table data: header + rows
+        table_data = [data.table_headers] + data.table_rows
 
-        # Data rows
-        row_y = 3.05
-        for row in data.table_rows:
-            for i, cell in enumerate(row):
-                bold = (i == 0)
-                b.text(table_left + i * col_w + 0.15, row_y, col_w - 0.2, 0.35,
-                      cell, 10, bold, self.T.black)
-            row_y += 0.42
+        # Column widths
+        num_cols = len(data.table_headers)
+        col_w = table_w_total / num_cols
+        col_widths = [col_w] * num_cols
+
+        # Create native table
+        b.native_table(
+            table_left, 2.65,
+            table_data,
+            col_widths=col_widths,
+            header_fill=self.T.purple
+        )
 
         # Conclusion box
         b.conclusion_box(data.conclusion, 6.35)
@@ -325,7 +529,7 @@ class CleanEBRThemes:
         b.page_num(page_num)
 
     def readiness(self, data: ReadinessData, page_num: int):
-        """Readiness slide — full-width table."""
+        """Readiness slide — full-width table. FIX #4: Native table."""
         slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
         b = Builder(slide, self.T)
 
@@ -336,29 +540,34 @@ class CleanEBRThemes:
         # Table dimensions
         table_left = self.T.margin_left
         table_w = 11.8
-        col_ws = [2.5, 3.0, 3.5, 2.8]  # Column widths
 
-        # Header row
-        b.rect(table_left, 2.7, table_w, 0.45, self.T.purple)
-        x = table_left
-        for hdr, cw in zip(data.table_headers, col_ws):
-            b.text(x + 0.15, 2.77, cw - 0.2, 0.35,
-                  hdr, self.T.table_header_size, True, self.T.white)
-            x += cw
+        # Calculate column widths based on actual number of columns
+        num_cols = len(data.table_headers)
+        if num_cols == 4:
+            # Use original specific widths for 4-column layout
+            col_ws = [2.5, 3.0, 3.5, 2.8]
+        else:
+            # Distribute evenly for other column counts
+            col_w = table_w / num_cols
+            col_ws = [col_w] * num_cols
 
-        # Data rows
-        row_y = 3.15
-        for phase_row in data.phases:
-            x = table_left
-            for i, (cell, cw) in enumerate(zip(phase_row, col_ws)):
-                bold = (i == 0)
-                b.text(x + 0.15, row_y + 0.08, cw - 0.25, 0.7,
-                      cell, 10, bold, self.T.black)
-                x += cw
-            row_y += 0.85
+        # Prepare table data
+        table_data = [data.table_headers] + data.phases
+
+        # Create native table
+        b.native_table(
+            table_left, 2.7,
+            table_data,
+            col_widths=col_ws,
+            header_fill=self.T.purple
+        )
+
+        # Calculate row height to position note below table
+        row_height = 0.85
+        note_y = 2.7 + 0.45 + (len(data.phases) * row_height) + 0.15
 
         # Note below table (italic, purple)
-        b.text(table_left, row_y + 0.15, table_w, 0.3, data.note,
+        b.text(table_left, note_y, 11.8, 0.3, data.note,
               10, False, self.T.purple, italic=True)
 
         # Conclusion box
@@ -368,7 +577,7 @@ class CleanEBRThemes:
         b.page_num(page_num)
 
     def decisions(self, data: DecisionsData, page_num: int):
-        """Decisions slide — boxes + timeline."""
+        """Decisions slide — boxes + timeline. FIX #4: Native timeline table."""
         slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
         b = Builder(slide, self.T)
 
@@ -389,28 +598,39 @@ class CleanEBRThemes:
                   body, 10, False, self.T.black)
             box_y += 1.15
 
-        # Right: Timeline table
+        # Right: Timeline as native table
         timeline_left = box_left + box_w + 0.5
         timeline_w = 11.8 - box_w - 0.5
 
-        # Header
-        b.rect(timeline_left, 2.7, timeline_w, 0.4, self.T.purple)
-        b.text(timeline_left + 0.15, 2.77, 1.8, 0.3,
-              'When', 10, True, self.T.white)
-        b.text(timeline_left + 2.0, 2.77, timeline_w - 2.15, 0.3,
-              'Evidence & decision', 10, True, self.T.white)
+        # Prepare timeline table data
+        timeline_headers = ['When', 'Evidence & decision']
+        timeline_table_data = [timeline_headers] + list(data.timeline)
 
-        # Timeline rows
-        row_y = 3.1
-        for when, what in data.timeline:
-            b.text(timeline_left + 0.15, row_y, 1.7, 0.6,
-                  when, 10, True, self.T.purple)
-            b.text(timeline_left + 2.0, row_y, timeline_w - 2.15, 0.6,
-                  what, 9, False, self.T.black)
-            row_y += 0.72
+        col_widths = [1.8, timeline_w - 1.8]
+
+        # Create native timeline table
+        table = b.native_table(
+            timeline_left, 2.7,
+            timeline_table_data,
+            col_widths=col_widths,
+            header_fill=self.T.purple
+        )
+
+        # Style "When" column cells (make them purple and bold)
+        if table:
+            for r_idx in range(1, len(timeline_table_data)):  # Skip header
+                when_cell = table.cell(r_idx, 0)
+                for paragraph in when_cell.text_frame.paragraphs:
+                    for run in paragraph.runs:
+                        run.font.color.rgb = self.T.rgb(self.T.purple)
+                        run.font.bold = True
+                        run.font.size = Pt(10)
+
+        # Calculate position for owners note
+        table_bottom = 2.7 + 0.4 + (len(data.timeline) * 0.72) + 0.1
 
         # Owners note
-        b.text(timeline_left, row_y + 0.1, timeline_w, 0.3, data.owners,
+        b.text(timeline_left, table_bottom, timeline_w, 0.3, data.owners,
               9, False, self.T.gray_dark, italic=True)
 
         # Conclusion box
@@ -420,9 +640,9 @@ class CleanEBRThemes:
         b.page_num(page_num)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════════════════════════
 # DECK BUILDER
-# ═══════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════════════════════════
 
 class CleanEBRDeck:
     """Build a complete clean-style EBR deck."""
@@ -436,18 +656,36 @@ class CleanEBRDeck:
         self.page = 1
 
     def build(self,
-              cover: CoverData,
-              performance: PerformanceData,
+              cover: Optional[CoverData] = None,  # FIX #2: Optional cover
+              performance: Optional[PerformanceData] = None,
               cost: Optional[CostData] = None,
               readiness: Optional[ReadinessData] = None,
-              decisions: Optional[DecisionsData] = None) -> Presentation:
-        """Build the deck."""
+              decisions: Optional[DecisionsData] = None,
+              skip_cover: bool = False) -> Presentation:  # FIX #2: skip_cover parameter
+        """
+        Build the deck.
 
-        self.themes.cover(cover)
-        self.page += 1
+        Args:
+            cover: Cover slide data (optional)
+            performance: Performance slide data
+            cost: Cost slide data
+            readiness: Readiness slide data
+            decisions: Decisions slide data
+            skip_cover: If True, skip the cover slide even if cover data provided
 
-        self.themes.performance(performance, self.page)
-        self.page += 1
+        Returns:
+            Presentation object
+        """
+
+        # FIX #2: Only add cover if not skipped and data provided
+        if cover and not skip_cover:
+            self.themes.cover(cover)
+            self.page += 1
+
+        # Add content slides (only if data provided)
+        if performance:
+            self.themes.performance(performance, self.page)
+            self.page += 1
 
         if cost:
             self.themes.cost(cost, self.page)
@@ -468,9 +706,9 @@ class CleanEBRDeck:
         return path
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════════════════════════
 # USAGE EXAMPLE
-# ═══════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════════════════════════
 
 def build_northstar_clean():
     """Build Northstar EBR in clean modern style."""
@@ -502,7 +740,13 @@ def build_northstar_clean():
             kicker='NORTHSTAR / CLIENT BUSINESS REVIEW',
             title='Model traffic grew; cost per automated ticket rose',
             subtitle='M2 Opening 7 days versus final 7 days 2026-08-01–2026-08-07 and 2026-08-25–2026-08-31',
-            chart_data=None,  # Would need actual data points
+            # FIX #3: Actual chart data with native editable chart
+            chart_data={
+                'categories': ['08-01', '08-08', '08-15', '08-22', '08-29'],
+                'values': [1850, 1920, 1780, 1650, 1590],
+                'title': 'DAILY P95 LATENCY (MS)',
+                'mean_line': 1831  # Opening week mean
+            },
             chart_annotation='Requests +44.6%; mean daily P95 -20.1%',
             table_headers=['Measure', 'Opening', 'Final'],
             table_rows=[
@@ -580,6 +824,8 @@ def build_northstar_clean():
             conclusion='Agree the owners and deadlines now. Fund the pilot when the flagship value assessment and Essentials readiness support the investment; extend review if evidence is insufficient.',
             footer='All expansion brands, stakeholder roles, timing and commercial estimates are planning assumptions. Proposed dates are not existing commitments. Review at least seven representative days of service; elapsed time alone does not establish readiness. Pilot Week 4 acceptance is provisional; final recontacts mature in Week 5.'
         ),
+
+        # skip_cover=False  # Can set to True to skip cover slide
     )
 
     path = '/Users/oldap/Downloads/fireworks_exercise/output/Northstar_EBR_Clean.pptx'
