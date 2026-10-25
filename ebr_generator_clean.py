@@ -373,6 +373,7 @@ class PerformanceData:
     body: str  # Explanatory paragraph
     conclusion: str  # Gray box conclusion
     footer: str
+    notes: str = ''  # Speaker notes (not visible on slide)
 
 @dataclass
 class CostData:
@@ -386,6 +387,7 @@ class CostData:
     table_rows: List[List[str]]
     conclusion: str
     footer: str
+    notes: str = ''  # Speaker notes (not visible on slide)
 
 @dataclass
 class ReadinessData:
@@ -398,6 +400,7 @@ class ReadinessData:
     note: str                  # Italic note below table
     conclusion: str
     footer: str
+    notes: str = ''  # Speaker notes (not visible on slide)
 
 @dataclass
 class DecisionsData:
@@ -410,6 +413,21 @@ class DecisionsData:
     owners: str
     conclusion: str
     footer: str
+    notes: str = ''  # Speaker notes (not visible on slide)
+
+
+@dataclass
+class PipelineData:
+    """Pipeline slide — brand-fit evidence, pricing, risk controls."""
+    kicker: str
+    title: str
+    subtitle: str
+    table_headers: List[str]
+    rows: List[List[str]]      # Grid of brand/segment evidence
+    note: str                  # Italic note below table
+    conclusion: str
+    footer: str
+    notes: str = ''  # Speaker notes (not visible on slide)
 
 
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
@@ -467,6 +485,10 @@ class CleanEBRThemes:
 
         b.footer(data.footer)
         b.page_num(page_num)
+
+        # Speaker notes
+        if data.notes:
+            slide.notes_slide.notes_text_frame.text = data.notes
 
     def cost(self, data: CostData, page_num: int):
         """Cost slide — chart left, table right. FIX #3 & #4: Native chart and table."""
@@ -528,6 +550,10 @@ class CleanEBRThemes:
         b.footer(data.footer)
         b.page_num(page_num)
 
+        # Speaker notes
+        if data.notes:
+            slide.notes_slide.notes_text_frame.text = data.notes
+
     def readiness(self, data: ReadinessData, page_num: int):
         """Readiness slide — full-width table. FIX #4: Native table."""
         slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
@@ -575,6 +601,10 @@ class CleanEBRThemes:
 
         b.footer(data.footer)
         b.page_num(page_num)
+
+        # Speaker notes
+        if data.notes:
+            slide.notes_slide.notes_text_frame.text = data.notes
 
     def decisions(self, data: DecisionsData, page_num: int):
         """Decisions slide — boxes + timeline. FIX #4: Native timeline table."""
@@ -639,6 +669,44 @@ class CleanEBRThemes:
         b.footer(data.footer)
         b.page_num(page_num)
 
+        # Speaker notes
+        if data.notes:
+            slide.notes_slide.notes_text_frame.text = data.notes
+
+    def pipeline(self, data: PipelineData, page_num: int):
+        """Pipeline slide — brand rows with brand-fit evidence."""
+        slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+        b = Builder(slide, self.T)
+
+        b.kicker(data.kicker)
+        b.title(data.title)
+        b.subtitle(data.subtitle)
+
+        # Grid of brand rows
+        start_y = 2.65
+        row_height = 0.75
+        col_widths = [2.0, 3.8, 3.8, 2.0]  # Brand, Proposition, Service, Evidence
+
+        for i, row in enumerate(data.rows):
+            y_pos = start_y + (i * row_height)
+            x_pos = self.T.margin_left
+
+            # Each column from the row
+            for col_idx, cell_value in enumerate(row):
+                b.text(x_pos, y_pos, col_widths[col_idx], row_height, cell_value,
+                      self.T.body_size, col_idx == 0, self.T.black)  # Bold first column (brand name)
+                x_pos += col_widths[col_idx]
+
+        # Conclusion box
+        b.conclusion_box(data.conclusion, 6.15)
+
+        b.footer(data.footer)
+        b.page_num(page_num)
+
+        # Speaker notes
+        if data.notes:
+            slide.notes_slide.notes_text_frame.text = data.notes
+
 
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 # DECK BUILDER
@@ -660,6 +728,7 @@ class CleanEBRDeck:
               performance: Optional[PerformanceData] = None,
               cost: Optional[CostData] = None,
               readiness: Optional[ReadinessData] = None,
+              pipeline: Optional[PipelineData] = None,
               decisions: Optional[DecisionsData] = None,
               skip_cover: bool = False) -> Presentation:  # FIX #2: skip_cover parameter
         """
@@ -670,6 +739,7 @@ class CleanEBRDeck:
             performance: Performance slide data
             cost: Cost slide data
             readiness: Readiness slide data
+            pipeline: Pipeline slide data
             decisions: Decisions slide data
             skip_cover: If True, skip the cover slide even if cover data provided
 
@@ -693,6 +763,10 @@ class CleanEBRDeck:
 
         if readiness:
             self.themes.readiness(readiness, self.page)
+            self.page += 1
+
+        if pipeline:
+            self.themes.pipeline(pipeline, self.page)
             self.page += 1
 
         if decisions:

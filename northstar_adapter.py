@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 from ebr_generator_clean import (
-    PerformanceData, CostData, ReadinessData, DecisionsData,
+    PerformanceData, CostData, ReadinessData, PipelineData, DecisionsData,
     CleanEBRDeck
 )
 
@@ -35,7 +35,7 @@ class NorthstarAdapter:
             slides: Array of slide objects with 'kind' fields
 
         Returns:
-            Tuple of (performance, cost, readiness, decisions) data objects
+            Tuple of (performance, cost, readiness, pipeline, decisions) data objects
         """
         self.warnings = []
         self.errors = []
@@ -47,6 +47,7 @@ class NorthstarAdapter:
         performance = None
         cost = None
         readiness = None
+        pipeline = None
         decisions = None
 
         # summary → Performance slide (3 metrics + statement)
@@ -67,9 +68,11 @@ class NorthstarAdapter:
         else:
             self.errors.append("Missing 'economics' slide")
 
-        # pipeline → (no template slot)
+        # pipeline → Pipeline slide (brand rows + evidence)
         if 'pipeline' in by_kind:
-            self.warnings.append("Pipeline slide not rendered (no template slot available)")
+            pipeline = self._convert_pipeline(by_kind['pipeline'])
+        else:
+            self.errors.append("Missing 'pipeline' slide")
 
         # pilot → Decisions slide (timeline + decision boxes)
         if 'pilot' in by_kind:
@@ -77,7 +80,7 @@ class NorthstarAdapter:
         else:
             self.errors.append("Missing 'pilot' slide")
 
-        return performance, cost, readiness, decisions
+        return performance, cost, readiness, pipeline, decisions
 
     def _convert_summary(self, slide: Dict) -> PerformanceData:
         """Convert summary slide to PerformanceData (3 metrics + statement)."""
@@ -90,22 +93,32 @@ class NorthstarAdapter:
                 m.get('note', '')
             ))
 
-        # Extract notes including talking points
-        notes = []
-        if slide.get('note'):
-            notes.append(slide['note'])
-        if slide.get('talkingPoint'):
-            notes.append(f"Talking point: {slide['talkingPoint']}")
+        # Extract talking points for speaker notes
+        # Include lead, body, and talkingPoint in notes
+        notes_parts = []
+        lead = slide.get('lead', '')
+        body = slide.get('body', '')
+        talking_point = slide.get('talkingPoint', '')
+
+        if lead:
+            notes_parts.append(lead)
+        if body:
+            notes_parts.append(body)
+        if talking_point and talking_point not in notes_parts:
+            notes_parts.append(talking_point)
+
+        notes_text = ' '.join(notes_parts)
 
         return PerformanceData(
             kicker='',
             title=slide.get('title', ''),
             subtitle=slide.get('subtitle', ''),
             metrics=metrics,
-            statement=slide.get('lead', ''),
-            body=slide.get('body', ''),
+            statement=lead,  # lead → statement
+            body=body,       # body → body (not lost)
             conclusion=slide.get('decision', ''),
-            footer='\n\n'.join(notes)
+            footer=slide.get('note', ''),
+            notes=notes_text
         )
 
     def _convert_performance(self, slide: Dict) -> CostData:
@@ -138,12 +151,21 @@ class NorthstarAdapter:
         headers = table_data.get('headers', [])
         rows = table_data.get('rows', [])
 
-        # Extract notes
-        notes = []
-        if slide.get('note'):
-            notes.append(slide['note'])
-        if slide.get('talkingPoint'):
-            notes.append(f"Talking point: {slide['talkingPoint']}")
+        # Extract talking points for speaker notes
+        # Include lead, body, and talkingPoint in notes
+        notes_parts = []
+        lead = slide.get('lead', '')
+        body = slide.get('body', '')
+        talking_point = slide.get('talkingPoint', '')
+
+        if lead:
+            notes_parts.append(lead)
+        if body:
+            notes_parts.append(body)
+        if talking_point and talking_point not in notes_parts:
+            notes_parts.append(talking_point)
+
+        notes_text = ' '.join(notes_parts)
 
         return CostData(
             kicker='',
@@ -154,7 +176,8 @@ class NorthstarAdapter:
             table_headers=headers,
             table_rows=rows,
             conclusion=slide.get('decision', ''),
-            footer='\n\n'.join(notes)
+            footer=slide.get('note', ''),
+            notes=notes_text
         )
 
     def _convert_economics(self, slide: Dict) -> ReadinessData:
@@ -163,25 +186,90 @@ class NorthstarAdapter:
         headers = table_data.get('headers', [])
         rows = table_data.get('rows', [])
 
-        # Extract notes
-        notes = []
-        if slide.get('note'):
-            notes.append(slide['note'])
-        if slide.get('talkingPoint'):
-            notes.append(f"Talking point: {slide['talkingPoint']}")
+        # Extract talking points for speaker notes
+        # Include lead, body, and talkingPoint in notes
+        notes_parts = []
+        lead = slide.get('lead', '')
+        body = slide.get('body', '')
+        talking_point = slide.get('talkingPoint', '')
 
-        # Note field (italic text below table)
-        note_text = slide.get('lead', '') or slide.get('body', '')
+        if lead:
+            notes_parts.append(lead)
+        if body:
+            notes_parts.append(body)
+        if talking_point and talking_point not in notes_parts:
+            notes_parts.append(talking_point)
+
+        notes_text = ' '.join(notes_parts)
+
+        # Map lead AND body to narrative fields (fix: not OR)
+        lead = slide.get('lead', '')
+        body = slide.get('body', '')
+
+        # Economics: lead→kicker, body→note (append both if both exist)
+        kicker_text = lead
+        if lead and body:
+            note_text = f"{lead}\n{body}"
+        elif body:
+            note_text = body
+        elif lead:
+            note_text = lead
+        else:
+            note_text = ''
 
         return ReadinessData(
-            kicker='',
+            kicker=kicker_text,
             title=slide.get('title', ''),
             subtitle=slide.get('subtitle', ''),
             table_headers=headers,
             phases=rows,
             note=note_text,
             conclusion=slide.get('decision', ''),
-            footer='\n\n'.join(notes)
+            footer=slide.get('note', ''),
+            notes=notes_text
+        )
+
+    def _convert_pipeline(self, slide: Dict) -> PipelineData:
+        """Convert pipeline slide to PipelineData (brand rows + evidence)."""
+        # Extract brand rows - convert to table format
+        table_headers = ['Brand', 'Proposition', 'Service Model', 'Brand-Fit Evidence']
+        rows = []
+
+        if 'brands' in slide:
+            for brand in slide['brands']:
+                rows.append([
+                    brand.get('name', ''),
+                    brand.get('proposition', ''),
+                    brand.get('service', ''),
+                    brand.get('evidence', '')  # brand-fit percentage
+                ])
+
+        # Extract talking points for speaker notes
+        # Include lead, body, and talkingPoint in notes
+        notes_parts = []
+        lead = slide.get('lead', '')
+        body = slide.get('body', '')
+        talking_point = slide.get('talkingPoint', '')
+
+        if lead:
+            notes_parts.append(lead)
+        if body:
+            notes_parts.append(body)
+        if talking_point and talking_point not in notes_parts:
+            notes_parts.append(talking_point)
+
+        notes_text = ' '.join(notes_parts)
+
+        return PipelineData(
+            kicker='',
+            title=slide.get('title', ''),
+            subtitle=slide.get('subtitle', ''),
+            table_headers=table_headers,
+            rows=rows,
+            note='',
+            conclusion=slide.get('decision', ''),
+            footer=slide.get('note', ''),
+            notes=notes_text
         )
 
     def _convert_pilot(self, slide: Dict) -> DecisionsData:
@@ -201,11 +289,21 @@ class NorthstarAdapter:
         if 'commitments' in slide:
             for commit in slide['commitments']:
                 when = commit.get('proposedDueDate', '')
-                what = f"{commit.get('issue', '')}"
+                what_parts = [commit.get('issue', '')]
+
+                # Map commitment qualifications (fix: status, deadline, consequence)
+                if commit.get('status'):
+                    what_parts.append(f"Status: {commit['status']}")
+                if commit.get('deadline'):
+                    what_parts.append(f"Deadline: {commit['deadline']}")
+                if commit.get('consequence'):
+                    what_parts.append(f"Consequence: {commit['consequence']}")
                 if commit.get('owner'):
-                    what += f"\nOwner: {commit['owner']}"
+                    what_parts.append(f"Owner: {commit['owner']}")
                 if commit.get('evidence'):
-                    what += f"\nEvidence: {commit['evidence']}"
+                    what_parts.append(f"Evidence: {commit['evidence']}")
+
+                what = '\n'.join(what_parts)
                 timeline.append((when, what))
 
         elif 'actions' in slide:
@@ -229,14 +327,14 @@ class NorthstarAdapter:
             owner_list = list(set(c.get('owner', '') for c in slide['commitments'] if c.get('owner')))
             owners = ', '.join(owner_list)
 
-        # Extract notes including fullGates
-        notes = []
-        if slide.get('note'):
-            notes.append(slide['note'])
-        if slide.get('fullGates') and slide['fullGates']:
-            notes.append("Full gates:\n" + '\n'.join(f"• {gate}" for gate in slide['fullGates']))
+        # Extract talking points for speaker notes + fullGates
+        notes_parts = []
         if slide.get('talkingPoint'):
-            notes.append(f"Talking point: {slide['talkingPoint']}")
+            notes_parts.append(slide['talkingPoint'])
+        if slide.get('fullGates') and slide['fullGates']:
+            notes_parts.append("Full gates:\n" + '\n'.join(f"• {gate}" for gate in slide['fullGates']))
+
+        notes_text = '\n\n'.join(notes_parts)
 
         return DecisionsData(
             kicker='',
@@ -246,7 +344,8 @@ class NorthstarAdapter:
             timeline=timeline,
             owners=owners,
             conclusion=slide.get('decision', ''),
-            footer='\n\n'.join(notes)
+            footer=slide.get('note', ''),
+            notes=notes_text
         )
 
 
@@ -285,7 +384,7 @@ def main():
 
         print("Converting to template format...")
         adapter = NorthstarAdapter()
-        performance, cost, readiness, decisions = adapter.convert(slides)
+        performance, cost, readiness, pipeline, decisions = adapter.convert(slides)
 
         if adapter.errors:
             print("❌ Conversion errors:")
@@ -300,33 +399,33 @@ def main():
 
         print("Generating PowerPoint deck...")
         deck = CleanEBRDeck()
-        prs = deck.build(
+        deck.build(
             performance=performance,
             cost=cost,
             readiness=readiness,
-            decisions=decisions,
-            skip_cover=True
+            pipeline=pipeline,
+            decisions=decisions
         )
         deck.save(str(output_path))
 
-        size = output_path.stat().st_size
-        print("")
-        print(f"✅ Success! Deck created: {output_path}")
-        print(f"   File size: {size:,} bytes")
-        print("")
-        print("📋 Verification Checklist:")
-        print("   1. Open in PowerPoint")
-        print("   2. Check 4 content slides (no cover, pipeline skipped)")
-        print("   3. Verify chart is editable (performance → cost slide)")
-        print("   4. Verify tables are editable")
-        print("   5. Check speaker notes for talking points and full gates")
+        # Verify output
+        if output_path.exists():
+            size = output_path.stat().st_size
+            print("")
+            print(f"✅ Success! Deck created: {output_path}")
+            print(f"   File size: {size:,} bytes")
+            print(f"   Slides: 5 (Performance, Cost, Readiness, Pipeline, Decisions)")
+        else:
+            print("")
+            print(f"❌ Error: Output file not created")
+            sys.exit(1)
 
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
+        print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
