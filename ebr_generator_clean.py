@@ -609,7 +609,7 @@ class CleanEBRThemes:
             slide.notes_slide.notes_text_frame.text = data.notes
 
     def decisions(self, data: DecisionsData, page_num: int):
-        """Decisions slide — boxes + timeline. FIX #2: Readable summary with proper layout."""
+        """Decisions slide — boxes + timeline. Variable heights for different text lengths."""
         slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
         b = Builder(slide, self.T)
 
@@ -617,36 +617,59 @@ class CleanEBRThemes:
         b.title(data.title)
         b.subtitle(data.subtitle)
 
-        # Left: Decision boxes (limit to 3 to fit with conclusion box)
+        # Left: Decision boxes with variable heights based on text length
         box_left = self.T.margin_left
         box_w = 5.5
         box_y = 2.7
+        gap = 0.15
 
-        # Limit to 3 visible decision boxes to fit vertical space
-        # Available space from 2.7" to footer at ~7.0" with conclusion box
-        # 3 boxes × 1.15" = 3.45", ending at 6.15", leaves room for conclusion
-        MAX_DECISION_BOXES = 3
-        visible_boxes = data.decision_boxes[:MAX_DECISION_BOXES]
+        # Calculate individual box heights based on body text length
+        # Available space: from 2.7" to conclusion at ~6.0" = 3.3"
+        # Estimate wrapped lines: ~65 chars per line at 10pt in 5.1" width
+        # Base: 0.7" (0.38" for heading/padding + 0.32" for ~2 lines)
+        # Add 0.15" per additional line
+        available_height = 3.3
 
-        for heading, body in visible_boxes:
-            b.rect(box_left, box_y, box_w, 0.95, self.T.gray_light)
+        if len(data.decision_boxes) > 0:
+            # Calculate required height for each box
+            box_heights = []
+            for heading, body in data.decision_boxes:
+                # Estimate wrapped lines (conservative: 60 chars/line)
+                chars_per_line = 60
+                estimated_lines = max(2, (len(body) + chars_per_line - 1) // chars_per_line)
+                # Height: heading area (0.38") + body lines (0.15" per line)
+                required_height = 0.38 + (estimated_lines * 0.15)
+                box_heights.append(required_height)
+
+            # Check if heights fit in available space
+            total_required = sum(box_heights) + (len(box_heights) - 1) * gap
+
+            if total_required > available_height:
+                # Scale down proportionally to fit
+                scale_factor = available_height / total_required
+                box_heights = [h * scale_factor for h in box_heights]
+                # Ensure minimum 0.6" per box
+                box_heights = [max(0.6, h) for h in box_heights]
+        else:
+            box_heights = []
+
+        for (heading, body), box_height in zip(data.decision_boxes, box_heights):
+            b.rect(box_left, box_y, box_w, box_height, self.T.gray_light)
             b.text(box_left + 0.2, box_y + 0.1, box_w - 0.4, 0.25,
                   heading, 11, True, self.T.purple)
-            b.text(box_left + 0.2, box_y + 0.38, box_w - 0.4, 0.52,
+            # Adjust body text area to fit within box_height
+            body_height = box_height - 0.38
+            b.text(box_left + 0.2, box_y + 0.38, box_w - 0.4, body_height,
                   body, 10, False, self.T.black)
-            box_y += 1.15
+            box_y += box_height + gap
 
         # Right: Timeline as native table with readable summary
         timeline_left = box_left + box_w + 0.5
         timeline_w = 11.8 - box_w - 0.5
 
-        # Limit timeline rows to fit available space (max 3 visible rows + header)
-        # Available vertical space: from 2.7" to conclusion box at 6.15" = 3.45"
-        # With 0.4" header + 0.3" owner note + margins = ~0.8" overhead
-        # Remaining: 2.65" for data rows
-        # With summary text (issue + owner only), 3 rows should fit comfortably
-        MAX_VISIBLE_ROWS = 3
-        visible_timeline = data.timeline[:MAX_VISIBLE_ROWS]
+        # Fit timeline rows to available space
+        # Match decision boxes: show all timeline items
+        visible_timeline = data.timeline
 
         # Prepare timeline table data
         timeline_headers = ['When', 'Decision & Owner']
@@ -701,7 +724,7 @@ class CleanEBRThemes:
             slide.notes_slide.notes_text_frame.text = data.notes
 
     def pipeline(self, data: PipelineData, page_num: int):
-        """Pipeline slide — brand rows with brand-fit evidence. FIX #1: Native table."""
+        """Pipeline slide — brand rows with brand-fit evidence. Explicit row heights for wrapped content."""
         slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
         b = Builder(slide, self.T)
 
@@ -718,17 +741,33 @@ class CleanEBRThemes:
         table_data = [data.table_headers] + data.rows
 
         # Create native table
-        b.native_table(
+        table = b.native_table(
             table_left, table_top,
             table_data,
             col_widths=col_widths,
             header_fill=self.T.purple
         )
 
-        # Conclusion box (positioned below table with spacing)
-        # 4 data rows + 1 header = 5 rows * 0.4 inch row height = 2.0 inches
-        # Plus top position 2.65 + small gap = ~4.8
-        b.conclusion_box(data.conclusion, 4.9)
+        # Set explicit row heights to accommodate wrapped text
+        # Real content: 55-77 chars per cell wrapping in 3.8" columns needs ~0.6" per row
+        # Header can remain 0.4", data rows need 0.65" for visibility
+        if table:
+            from pptx.util import Inches
+            header_height = Inches(0.45)
+            data_row_height = Inches(0.65)
+
+            table.rows[0].height = header_height  # Header row
+            for i in range(1, len(table.rows)):
+                table.rows[i].height = data_row_height  # Data rows
+
+            # Calculate conclusion position from allocated heights (in inches)
+            table_height_inches = 0.45 + (0.65 * len(data.rows))
+            conclusion_top = table_top + table_height_inches + 0.15
+        else:
+            # Fallback if table creation failed
+            conclusion_top = table_top + (len(table_data) * 0.65) + 0.15
+
+        b.conclusion_box(data.conclusion, conclusion_top)
 
         b.footer(data.footer)
         b.page_num(page_num)
