@@ -581,7 +581,7 @@ class CleanEBRThemes:
         table_data = [data.table_headers] + data.phases
 
         # Create native table
-        b.native_table(
+        table = b.native_table(
             table_left, 2.7,
             table_data,
             col_widths=col_ws,
@@ -589,7 +589,10 @@ class CleanEBRThemes:
         )
 
         # Calculate row height to position note below table
-        row_height = 0.85
+        row_height = 0.65
+        table.rows[0].height = Inches(0.45)
+        for row in list(table.rows)[1:]:
+            row.height = Inches(row_height)
         note_y = 2.7 + 0.45 + (len(data.phases) * row_height) + 0.15
 
         # Note below table (italic, purple)
