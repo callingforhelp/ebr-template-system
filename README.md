@@ -1,6 +1,6 @@
 # Clean EBR Template System
 
-**Modern, client-ready Executive Business Review deck generator**
+**Modern, client-ready Executive Business Review deck generator with CLI**
 
 Based on the clean design from `Northstar_Client_EBR.pptx`:
 - White background with generous whitespace
@@ -11,6 +11,28 @@ Based on the clean design from `Northstar_Client_EBR.pptx`:
 - Modern typography
 
 ## Quick Start
+
+### Using the CLI (Recommended)
+
+```bash
+git clone https://github.com/callingforhelp/ebr-template-system.git
+cd ebr-template-system
+pip install -r requirements.txt
+
+# Create a template to fill in
+python ebr_cli.py init my-data.json
+
+# Edit my-data.json with your content, then generate
+python ebr_cli.py generate my-data.json output.pptx
+
+# Validate your JSON
+python ebr_cli.py validate my-data.json
+
+# List available themes
+python ebr_cli.py themes
+```
+
+### Using Python Directly
 
 ```python
 from ebr_generator_clean import CleanEBRDeck, CoverData, PerformanceData
