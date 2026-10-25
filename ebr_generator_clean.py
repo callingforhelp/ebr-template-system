@@ -609,7 +609,7 @@ class CleanEBRThemes:
             slide.notes_slide.notes_text_frame.text = data.notes
 
     def decisions(self, data: DecisionsData, page_num: int):
-        """Decisions slide — boxes + timeline. FIX #2: Readable summary with proper layout."""
+        """Decisions slide — boxes + timeline. All decisions visible, no omission."""
         slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
         b = Builder(slide, self.T)
 
@@ -617,36 +617,42 @@ class CleanEBRThemes:
         b.title(data.title)
         b.subtitle(data.subtitle)
 
-        # Left: Decision boxes (limit to 3 to fit with conclusion box)
+        # Left: Decision boxes (fit all, no artificial limit)
         box_left = self.T.margin_left
         box_w = 5.5
         box_y = 2.7
 
-        # Limit to 3 visible decision boxes to fit vertical space
-        # Available space from 2.7" to footer at ~7.0" with conclusion box
-        # 3 boxes × 1.15" = 3.45", ending at 6.15", leaves room for conclusion
-        MAX_DECISION_BOXES = 3
-        visible_boxes = data.decision_boxes[:MAX_DECISION_BOXES]
+        # Calculate box height to fit all decisions without overlap
+        # Available space: from 2.7" to conclusion at ~6.2" = 3.5"
+        # Distribute evenly across all decision boxes
+        num_boxes = len(data.decision_boxes)
+        if num_boxes > 0:
+            # Calculate spacing: leave 0.15" gap between boxes
+            gap = 0.15
+            available_height = 3.3  # Space before conclusion box at 6.2"
+            box_height = (available_height - (num_boxes - 1) * gap) / num_boxes
+            # Clamp to reasonable bounds (min 0.6", max 1.0")
+            box_height = max(0.6, min(1.0, box_height))
+        else:
+            box_height = 0.95  # Default
 
-        for heading, body in visible_boxes:
-            b.rect(box_left, box_y, box_w, 0.95, self.T.gray_light)
+        for heading, body in data.decision_boxes:
+            b.rect(box_left, box_y, box_w, box_height, self.T.gray_light)
             b.text(box_left + 0.2, box_y + 0.1, box_w - 0.4, 0.25,
                   heading, 11, True, self.T.purple)
-            b.text(box_left + 0.2, box_y + 0.38, box_w - 0.4, 0.52,
+            # Adjust body text area to fit within box_height
+            body_height = box_height - 0.38
+            b.text(box_left + 0.2, box_y + 0.38, box_w - 0.4, body_height,
                   body, 10, False, self.T.black)
-            box_y += 1.15
+            box_y += box_height + 0.15  # Add gap between boxes
 
         # Right: Timeline as native table with readable summary
         timeline_left = box_left + box_w + 0.5
         timeline_w = 11.8 - box_w - 0.5
 
-        # Limit timeline rows to fit available space (max 3 visible rows + header)
-        # Available vertical space: from 2.7" to conclusion box at 6.15" = 3.45"
-        # With 0.4" header + 0.3" owner note + margins = ~0.8" overhead
-        # Remaining: 2.65" for data rows
-        # With summary text (issue + owner only), 3 rows should fit comfortably
-        MAX_VISIBLE_ROWS = 3
-        visible_timeline = data.timeline[:MAX_VISIBLE_ROWS]
+        # Fit timeline rows to available space
+        # Match decision boxes: show all timeline items
+        visible_timeline = data.timeline
 
         # Prepare timeline table data
         timeline_headers = ['When', 'Decision & Owner']
@@ -701,7 +707,7 @@ class CleanEBRThemes:
             slide.notes_slide.notes_text_frame.text = data.notes
 
     def pipeline(self, data: PipelineData, page_num: int):
-        """Pipeline slide — brand rows with brand-fit evidence. FIX #1: Native table."""
+        """Pipeline slide — brand rows with brand-fit evidence. Dynamic conclusion positioning."""
         slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
         b = Builder(slide, self.T)
 
@@ -718,17 +724,21 @@ class CleanEBRThemes:
         table_data = [data.table_headers] + data.rows
 
         # Create native table
-        b.native_table(
+        table = b.native_table(
             table_left, table_top,
             table_data,
             col_widths=col_widths,
             header_fill=self.T.purple
         )
 
-        # Conclusion box (positioned below table with spacing)
-        # 4 data rows + 1 header = 5 rows * 0.4 inch row height = 2.0 inches
-        # Plus top position 2.65 + small gap = ~4.8
-        b.conclusion_box(data.conclusion, 4.9)
+        # Calculate dynamic conclusion position based on actual table height
+        # Row height is 0.4" per row (set in native_table method)
+        row_height = 0.4
+        num_rows = len(table_data)  # headers + data rows
+        table_height = num_rows * row_height
+        conclusion_top = table_top + table_height + 0.15  # Small gap after table
+
+        b.conclusion_box(data.conclusion, conclusion_top)
 
         b.footer(data.footer)
         b.page_num(page_num)

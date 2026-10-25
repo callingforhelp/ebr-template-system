@@ -330,7 +330,7 @@ def test_native_tables():
     return True
 
 
-def test_integration_full_deck():
+def test_integration_full_deck(tmp_path=None):
     """Integration test: Generate full deck with all fixes."""
     print("="*70)
     print("INTEGRATION TEST: Full Deck Generation")
@@ -396,9 +396,15 @@ def test_integration_full_deck():
     print(f"✓ Slide 3 (cost) has {len(tables)} table(s)")
     assert len(tables) == 1, "Cost slide should have 1 table"
 
-    # Save test deck
-    output_path = '/Users/oldap/Downloads/fireworks_exercise/output/test_compatibility_deck.pptx'
-    deck.save(output_path)
+    # Save test deck - use tmp_path if provided (pytest), otherwise temp location
+    if tmp_path:
+        output_path = tmp_path / 'test_compatibility_deck.pptx'
+    else:
+        import tempfile
+        temp_dir = tempfile.gettempdir()
+        output_path = f"{temp_dir}/test_compatibility_deck.pptx"
+
+    deck.save(str(output_path))
     print(f"✓ Saved test deck: {output_path}")
     print("  → Open this file in PowerPoint to verify:")
     print("     - Font is Montserrat (or Calibri if not installed)")
