@@ -2,8 +2,8 @@
 """
 Northstar EBR Adapter
 
-Converts Northstar's ebr-slides.json format to the template system's input format.
-Maps the Northstar dashboard output directly to slide data classes for rendering.
+Converts Northstar's ebr-slides.json format to PowerPoint via the template system.
+Accepts the real Northstar array format: five content slides with kind fields.
 
 Usage:
     python northstar_adapter.py <northstar-json> <output.pptx>
@@ -12,272 +12,317 @@ Usage:
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Tuple
-from dataclasses import dataclass
+from typing import List, Dict, Any, Optional
 
 from ebr_generator_clean import (
-    CoverData, PerformanceData, CostData,
-    ReadinessData, DecisionsData, CleanEBRDeck
+    PerformanceData, CostData, ReadinessData, DecisionsData,
+    CleanEBRDeck
 )
 
 
-@dataclass
-class ConvertedData:
-    """Converted slide data ready for rendering."""
-    cover: CoverData
-    performance: PerformanceData
-    cost: CostData
-    readiness: ReadinessData
-    decisions: DecisionsData
-
-
-@dataclass
-class AdapterResult:
-    """Result of adapter conversion with validation info."""
-    data: Optional[ConvertedData]
-    warnings: List[str]
-    errors: List[str]
-
-    @property
-    def is_valid(self) -> bool:
-        return self.data is not None and len(self.errors) == 0
-
-
 class NorthstarAdapter:
-    """Converts Northstar JSON to template slide data."""
+    """Converts Northstar JSON array to template slide data."""
 
     def __init__(self):
         self.warnings: List[str] = []
         self.errors: List[str] = []
 
-    def convert(self, northstar_json: Dict[str, Any]) -> AdapterResult:
+    def convert(self, slides: List[Dict[str, Any]]) -> tuple:
         """
-        Convert Northstar JSON to slide data classes.
+        Convert Northstar slides array to slide data.
 
         Args:
-            northstar_json: Parsed Northstar ebr-slides.json
+            slides: Array of slide objects with 'kind' fields
 
         Returns:
-            AdapterResult with converted data or errors
+            Tuple of (performance, cost, readiness, decisions) data objects
         """
         self.warnings = []
         self.errors = []
 
-        try:
-            # Extract and convert each slide type
-            cover_data = self._convert_cover(northstar_json.get('cover'))
-            performance_data = self._convert_performance(northstar_json.get('performance'))
-            cost_data = self._convert_cost(northstar_json.get('cost'))
-            readiness_data = self._convert_readiness(northstar_json.get('readiness'))
-            decisions_data = self._convert_decisions(northstar_json.get('decisions'))
+        # Index slides by kind
+        by_kind = {slide['kind']: slide for slide in slides}
 
-            # Build ConvertedData
-            converted = ConvertedData(
-                cover=cover_data,
-                performance=performance_data,
-                cost=cost_data,
-                readiness=readiness_data,
-                decisions=decisions_data
-            )
+        # Convert each slide
+        performance = None
+        cost = None
+        readiness = None
+        decisions = None
 
-            return AdapterResult(
-                data=converted,
-                warnings=self.warnings,
-                errors=self.errors
-            )
+        # summary → Performance slide (3 metrics + statement)
+        if 'summary' in by_kind:
+            performance = self._convert_summary(by_kind['summary'])
+        else:
+            self.errors.append("Missing 'summary' slide")
 
-        except Exception as e:
-            self.errors.append(f"Conversion failed: {str(e)}")
-            return AdapterResult(
-                data=None,
-                warnings=self.warnings,
-                errors=self.errors
-            )
+        # performance → Cost slide (chart + table)
+        if 'performance' in by_kind:
+            cost = self._convert_performance(by_kind['performance'])
+        else:
+            self.errors.append("Missing 'performance' slide")
 
-    def _convert_cover(self, cover: Optional[Dict]) -> CoverData:
-        """Convert cover slide data."""
-        if not cover:
-            self.errors.append("Missing 'cover' section")
-            raise ValueError("Cover data required")
+        # economics → Readiness slide (table-only)
+        if 'economics' in by_kind:
+            readiness = self._convert_economics(by_kind['economics'])
+        else:
+            self.errors.append("Missing 'economics' slide")
 
-        return CoverData(
-            title=cover.get('title', ''),
-            subtitle=cover.get('subtitle', '')
-        )
+        # pipeline → (no template slot)
+        if 'pipeline' in by_kind:
+            self.warnings.append("Pipeline slide not rendered (no template slot available)")
 
-    def _convert_performance(self, perf: Optional[Dict]) -> PerformanceData:
-        """Convert performance slide data."""
-        if not perf:
-            self.errors.append("Missing 'performance' section")
-            raise ValueError("Performance data required")
+        # pilot → Decisions slide (timeline + decision boxes)
+        if 'pilot' in by_kind:
+            decisions = self._convert_pilot(by_kind['pilot'])
+        else:
+            self.errors.append("Missing 'pilot' slide")
 
-        # Convert metrics: [[value, label, context], ...] → List[Tuple[str, str, str]]
-        raw_metrics = perf.get('metrics', [])
-        if len(raw_metrics) != 3:
-            self.warnings.append(f"Expected 3 metrics, got {len(raw_metrics)}")
+        return performance, cost, readiness, decisions
 
-        metrics = [tuple(m) if len(m) == 3 else (str(m[0]), str(m[1]), str(m[2]) if len(m) > 2 else '')
-                   for m in raw_metrics]
+    def _convert_summary(self, slide: Dict) -> PerformanceData:
+        """Convert summary slide to PerformanceData (3 metrics + statement)."""
+        # Convert metrics to tuples
+        metrics = []
+        for m in slide.get('metrics', []):
+            metrics.append((
+                m.get('value', ''),
+                m.get('label', ''),
+                m.get('note', '')
+            ))
+
+        # Extract notes including talking points
+        notes = []
+        if slide.get('note'):
+            notes.append(slide['note'])
+        if slide.get('talkingPoint'):
+            notes.append(f"Talking point: {slide['talkingPoint']}")
 
         return PerformanceData(
-            kicker=perf.get('kicker', ''),
-            title=perf.get('title', ''),
-            subtitle=perf.get('subtitle', ''),
+            kicker='',
+            title=slide.get('title', ''),
+            subtitle=slide.get('subtitle', ''),
             metrics=metrics,
-            statement=perf.get('statement', ''),
-            body=perf.get('body', ''),
-            conclusion=perf.get('conclusion', ''),
-            footer=perf.get('footer', '')
+            statement=slide.get('lead', ''),
+            body=slide.get('body', ''),
+            conclusion=slide.get('decision', ''),
+            footer='\n\n'.join(notes)
         )
 
-    def _convert_cost(self, cost: Optional[Dict]) -> CostData:
-        """Convert cost slide data."""
-        if not cost:
-            self.errors.append("Missing 'cost' section")
-            raise ValueError("Cost data required")
+    def _convert_performance(self, slide: Dict) -> CostData:
+        """Convert performance slide to CostData (chart + table)."""
+        # Extract chart data
+        chart_data = None
+        chart_annotation = ''
 
-        # Chart data is optional (can be None)
-        chart_data = cost.get('chart_data')
-        if chart_data and not isinstance(chart_data, dict):
-            self.warnings.append("chart_data should be dict or null")
-            chart_data = None
+        if 'chart' in slide and slide['chart']:
+            chart = slide['chart']
+            # Convert to template format
+            categories = [v['date'] for v in chart.get('values', [])]
+            values = [v['value'] for v in chart.get('values', [])]
+
+            chart_data = {
+                'categories': categories,
+                'values': values,
+                'title': chart.get('label', ''),
+                'mean_line': chart.get('target')  # Reference line
+            }
+
+            # Build annotation from chart metadata
+            if chart.get('unit'):
+                chart_annotation = f"Unit: {chart['unit']}"
+            if chart.get('targetLabel'):
+                chart_annotation += f" | Reference: {chart['targetLabel']}"
+
+        # Extract table
+        table_data = slide.get('table', {})
+        headers = table_data.get('headers', [])
+        rows = table_data.get('rows', [])
+
+        # Extract notes
+        notes = []
+        if slide.get('note'):
+            notes.append(slide['note'])
+        if slide.get('talkingPoint'):
+            notes.append(f"Talking point: {slide['talkingPoint']}")
 
         return CostData(
-            kicker=cost.get('kicker', ''),
-            title=cost.get('title', ''),
-            subtitle=cost.get('subtitle', ''),
+            kicker='',
+            title=slide.get('title', ''),
+            subtitle=slide.get('subtitle', ''),
             chart_data=chart_data,
-            chart_annotation=cost.get('chart_annotation', ''),
-            table_headers=cost.get('table_headers', []),
-            table_rows=cost.get('table_rows', []),
-            conclusion=cost.get('conclusion', ''),
-            footer=cost.get('footer', '')
+            chart_annotation=chart_annotation,
+            table_headers=headers,
+            table_rows=rows,
+            conclusion=slide.get('decision', ''),
+            footer='\n\n'.join(notes)
         )
 
-    def _convert_readiness(self, ready: Optional[Dict]) -> ReadinessData:
-        """Convert readiness slide data."""
-        if not ready:
-            self.errors.append("Missing 'readiness' section")
-            raise ValueError("Readiness data required")
+    def _convert_economics(self, slide: Dict) -> ReadinessData:
+        """Convert economics slide to ReadinessData (table-only)."""
+        table_data = slide.get('table', {})
+        headers = table_data.get('headers', [])
+        rows = table_data.get('rows', [])
+
+        # Extract notes
+        notes = []
+        if slide.get('note'):
+            notes.append(slide['note'])
+        if slide.get('talkingPoint'):
+            notes.append(f"Talking point: {slide['talkingPoint']}")
+
+        # Note field (italic text below table)
+        note_text = slide.get('lead', '') or slide.get('body', '')
 
         return ReadinessData(
-            kicker=ready.get('kicker', ''),
-            title=ready.get('title', ''),
-            subtitle=ready.get('subtitle', ''),
-            table_headers=ready.get('table_headers', []),
-            phases=ready.get('phases', []),
-            note=ready.get('note', ''),
-            conclusion=ready.get('conclusion', ''),
-            footer=ready.get('footer', '')
+            kicker='',
+            title=slide.get('title', ''),
+            subtitle=slide.get('subtitle', ''),
+            table_headers=headers,
+            phases=rows,
+            note=note_text,
+            conclusion=slide.get('decision', ''),
+            footer='\n\n'.join(notes)
         )
 
-    def _convert_decisions(self, decisions: Optional[Dict]) -> DecisionsData:
-        """Convert decisions slide data."""
-        if not decisions:
-            self.errors.append("Missing 'decisions' section")
-            raise ValueError("Decisions data required")
+    def _convert_pilot(self, slide: Dict) -> DecisionsData:
+        """Convert pilot slide to DecisionsData (criteria + timeline)."""
+        # Extract decision boxes from sections
+        decision_boxes = []
+        if 'sections' in slide:
+            for section in slide['sections']:
+                decision_boxes.append((
+                    section.get('heading', ''),
+                    section.get('text', '')
+                ))
 
-        # Convert decision_boxes and timeline to tuples
-        decision_boxes = [tuple(box) if isinstance(box, list) else box
-                          for box in decisions.get('decision_boxes', [])]
-        timeline = [tuple(item) if isinstance(item, list) else item
-                    for item in decisions.get('timeline', [])]
+        # Extract timeline from commitments/actions
+        timeline = []
+
+        if 'commitments' in slide:
+            for commit in slide['commitments']:
+                when = commit.get('proposedDueDate', '')
+                what = f"{commit.get('issue', '')}"
+                if commit.get('owner'):
+                    what += f"\nOwner: {commit['owner']}"
+                if commit.get('evidence'):
+                    what += f"\nEvidence: {commit['evidence']}"
+                timeline.append((when, what))
+
+        elif 'actions' in slide:
+            for action in slide['actions']:
+                when = action.get('target', '')
+                what = f"{action.get('action', '')}"
+                if action.get('owner'):
+                    what += f"\nOwner: {action['owner']}"
+                timeline.append((when, what))
+
+        elif 'table' in slide:
+            # Fallback: extract from table
+            table = slide['table']
+            for row in table.get('rows', []):
+                if len(row) >= 2:
+                    timeline.append((row[0], row[1]))
+
+        # Extract owners
+        owners = ''
+        if 'commitments' in slide:
+            owner_list = list(set(c.get('owner', '') for c in slide['commitments'] if c.get('owner')))
+            owners = ', '.join(owner_list)
+
+        # Extract notes including fullGates
+        notes = []
+        if slide.get('note'):
+            notes.append(slide['note'])
+        if slide.get('fullGates') and slide['fullGates']:
+            notes.append("Full gates:\n" + '\n'.join(f"• {gate}" for gate in slide['fullGates']))
+        if slide.get('talkingPoint'):
+            notes.append(f"Talking point: {slide['talkingPoint']}")
 
         return DecisionsData(
-            kicker=decisions.get('kicker', ''),
-            title=decisions.get('title', ''),
-            subtitle=decisions.get('subtitle', ''),
+            kicker='',
+            title=slide.get('title', ''),
+            subtitle=slide.get('subtitle', ''),
             decision_boxes=decision_boxes,
             timeline=timeline,
-            owners=decisions.get('owners', ''),
-            conclusion=decisions.get('conclusion', ''),
-            footer=decisions.get('footer', '')
+            owners=owners,
+            conclusion=slide.get('decision', ''),
+            footer='\n\n'.join(notes)
         )
 
 
-def load_northstar_json(path: Path) -> Dict[str, Any]:
-    """Load and parse Northstar JSON file."""
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON: {e}")
-    except Exception as e:
-        raise IOError(f"Cannot read {path}: {e}")
+def load_json(path: Path) -> List[Dict]:
+    """Load Northstar JSON from file."""
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    if not isinstance(data, list):
+        raise ValueError(
+            f"Expected array of slides, got {type(data).__name__}. "
+            "Northstar output should be: [{kind: 'summary', ...}, ...]"
+        )
+
+    return data
 
 
 def main():
-    """CLI entry point."""
     if len(sys.argv) != 3:
         print("Usage: python northstar_adapter.py <northstar-json> <output.pptx>")
-        print("\nExample:")
-        print("  python northstar_adapter.py artifacts/example-northstar-data.json output.pptx")
+        print("")
+        print("Example:")
+        print("  python northstar_adapter.py ebr-slides.json output.pptx")
         sys.exit(1)
 
     input_path = Path(sys.argv[1])
     output_path = Path(sys.argv[2])
 
-    # Validate input
     if not input_path.exists():
-        print(f"Error: Input file not found: {input_path}")
+        print(f"❌ Error: Input file not found: {input_path}")
         sys.exit(1)
 
-    if not input_path.suffix == '.json':
-        print(f"Warning: Input file should be .json, got {input_path.suffix}")
-
-    # Load Northstar JSON
     try:
         print(f"Loading {input_path}...")
-        northstar_data = load_northstar_json(input_path)
-    except Exception as e:
-        print(f"Error loading JSON: {e}")
-        sys.exit(1)
+        slides = load_json(input_path)
 
-    # Convert
-    print("Converting to template format...")
-    adapter = NorthstarAdapter()
-    result = adapter.convert(northstar_data)
+        print("Converting to template format...")
+        adapter = NorthstarAdapter()
+        performance, cost, readiness, decisions = adapter.convert(slides)
 
-    # Report warnings
-    if result.warnings:
-        print("\nWarnings:")
-        for warn in result.warnings:
-            print(f"  ⚠️  {warn}")
+        if adapter.errors:
+            print("❌ Conversion errors:")
+            for error in adapter.errors:
+                print(f"   - {error}")
+            sys.exit(1)
 
-    # Check for errors
-    if not result.is_valid:
-        print("\nErrors:")
-        for err in result.errors:
-            print(f"  ❌ {err}")
-        sys.exit(1)
+        if adapter.warnings:
+            print("⚠️  Warnings:")
+            for warning in adapter.warnings:
+                print(f"   - {warning}")
 
-    # Generate PowerPoint
-    print(f"Generating PowerPoint deck...")
-    try:
-        # Create deck and build slides
+        print("Generating PowerPoint deck...")
         deck = CleanEBRDeck()
-        deck.build(
-            cover=result.data.cover,
-            performance=result.data.performance,
-            cost=result.data.cost,
-            readiness=result.data.readiness,
-            decisions=result.data.decisions
+        prs = deck.build(
+            performance=performance,
+            cost=cost,
+            readiness=readiness,
+            decisions=decisions,
+            skip_cover=True
         )
         deck.save(str(output_path))
 
-        print(f"\n✅ Success! Deck created: {output_path}")
-        print(f"   File size: {output_path.stat().st_size:,} bytes")
-
-        # Verification checklist
-        print("\n📋 Verification Checklist:")
+        size = output_path.stat().st_size
+        print("")
+        print(f"✅ Success! Deck created: {output_path}")
+        print(f"   File size: {size:,} bytes")
+        print("")
+        print("📋 Verification Checklist:")
         print("   1. Open in PowerPoint")
-        print("   2. Check font is Montserrat (or Calibri fallback)")
-        print("   3. Verify chart is editable (click → Edit Data)")
-        print("   4. Verify tables are editable (click cells)")
-        print("   5. Check all 5 slides render correctly")
+        print("   2. Check 4 content slides (no cover, pipeline skipped)")
+        print("   3. Verify chart is editable (performance → cost slide)")
+        print("   4. Verify tables are editable")
+        print("   5. Check speaker notes for talking points and full gates")
 
     except Exception as e:
-        print(f"\n❌ Generation failed: {e}")
+        print(f"❌ Error: {str(e)}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
