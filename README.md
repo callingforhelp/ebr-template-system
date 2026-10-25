@@ -10,27 +10,47 @@ Based on the clean design from `Northstar_Client_EBR.pptx`:
 - Clean tables with purple headers
 - Modern typography
 
+## Installation
+
+**📖 Full installation guide: [INSTALL.md](INSTALL.md)**
+
+Quick install:
+
+```bash
+git clone https://github.com/callingforhelp/ebr-template-system.git
+cd ebr-template-system
+pip3 install -r requirements.txt
+```
+
+**Dependencies:**
+- `python-pptx>=0.6.21` — PowerPoint generation
+- `jsonschema>=4.0.0` — JSON validation
+
 ## Quick Start
 
 ### Using the CLI (Recommended)
 
 ```bash
-git clone https://github.com/callingforhelp/ebr-template-system.git
-cd ebr-template-system
-pip install -r requirements.txt
+# Verify installation
+python3 ebr_cli.py --help
+
+# Verify installation
+python3 ebr_cli.py --help
 
 # Create a template to fill in
-python ebr_cli.py init my-data.json
+python3 ebr_cli.py init my-data.json
 
 # Edit my-data.json with your content, then generate
-python ebr_cli.py generate my-data.json output.pptx
+python3 ebr_cli.py generate my-data.json output.pptx
 
 # Validate your JSON
-python ebr_cli.py validate my-data.json
+python3 ebr_cli.py validate my-data.json
 
 # List available themes
-python ebr_cli.py themes
+python3 ebr_cli.py themes
 ```
+
+**Troubleshooting?** See [INSTALL.md](INSTALL.md) for detailed help.
 
 ### Using Python Directly
 
