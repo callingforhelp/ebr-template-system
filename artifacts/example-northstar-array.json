@@ -1,0 +1,131 @@
+[
+  {
+    "kind": "summary",
+    "title": "The flagship delivers operational value; establish its full return",
+    "subtitle": "M1 Northstar leadership review 2026-08-01 to 2026-08-31",
+    "metrics": [
+      {"value": "70%", "label": "Tier-1 volume handled", "note": "Reported in the case brief"},
+      {"value": "35%", "label": "Lower average handle time", "note": "Reported versus the pre-launch baseline"},
+      {"value": "+12 pts", "label": "CSAT improvement", "note": "Reported versus the pre-launch baseline"}
+    ],
+    "lead": "97,488 automated tickets demonstrate a meaningful operating footprint",
+    "body": "The CSV records 789,563 model requests and 68.0% automation across the month. The final week reached 70.1% automation, compared with 65.8% in the opening week. The operating opportunity is to absorb routine demand while experienced staff handle exceptions.",
+    "decision": "First assess flagship benefits against implementation and ongoing costs. Use that evidence to decide whether expansion is worth funding.",
+    "note": "Source: supplied Northstar case brief and synthetic daily metrics. Reporting period 2026-08-01 to 2026-08-31.",
+    "talkingPoint": "Automation rose from 65.8% to 70.1% over the month, indicating steady improvement in handling tier-1 tickets."
+  },
+  {
+    "kind": "performance",
+    "title": "Model traffic grew; cost per automated ticket rose",
+    "subtitle": "M2 Opening 7 days versus final 7 days 2026-08-01–2026-08-07 and 2026-08-25–2026-08-31",
+    "chart": {
+      "label": "Daily automation rate",
+      "unit": "%",
+      "target": 70.0,
+      "targetLabel": "Target automation",
+      "values": [
+        {"date": "Week 1", "value": 65.8},
+        {"date": "Week 2", "value": 67.2},
+        {"date": "Week 3", "value": 68.9},
+        {"date": "Week 4", "value": 70.1}
+      ]
+    },
+    "table": {
+      "headers": ["Measure", "Opening", "Final"],
+      "rows": [
+        ["Model requests", "145,601", "210,467"],
+        ["Automation", "65.8%", "70.1%"],
+        ["Availability", "99.8236%", "99.8997%"],
+        ["Request errors", "1.26%", "0.72%"],
+        ["Grounding / evaluation", "92.2 / 91.4%", "96.0 / 94.8%"],
+        ["Escalation", "14.2%", "11.5%"]
+      ]
+    },
+    "lead": "Request volume grew 44.6% from opening week to final week, testing system capacity under load.",
+    "body": "Error rates declined from 1.26% to 0.72% while automation improved from 65.8% to 70.1%, demonstrating both resilience and effective classification at scale.",
+    "decision": "Recorded spend: $1,213.12; full operating cost is not yet established. Set owners and deadlines for remaining issues, then prioritize improvements by customer benefit and cost.",
+    "note": "Operational notes in the CSV provide incident context. Proposed controls: atomic policy releases and peak-load tests.",
+    "talkingPoint": "Request volume grew 44.6% while error rates dropped from 1.26% to 0.72%, showing system stability under load."
+  },
+  {
+    "kind": "economics",
+    "title": "Essentials' value proposition favors fast, efficient support",
+    "subtitle": "M3 / M4 Expansion hypotheses Earliest windows from approved kickoff",
+    "table": {
+      "headers": ["Brand / earliest window", "Customer / price proposition", "AI and human service", "Evidence to advance"],
+      "rows": [
+        ["Essentials\nWeeks 1-4", "Value-conscious everyday shoppers; affordable products.", "Fast, low-effort resolution; bot-led routine support with human exceptions.", "Policy owner signs off; isolation and peak-load tests pass."],
+        ["Style\nWeeks 5-8*", "Fashion shoppers; accessible pricing and promotional choice.", "Confidence in fit and exchanges; automate facts, assist on exceptions.", "Fresh catalog and exception tests pass; operations lead accepts the workflow."],
+        ["Home\nWeeks 9-12*", "Considered home-goods buyers; higher purchase commitment.", "Suitability and delivery confidence; system lookups plus specialists.", "Read-only connectors pass; data freshness and fallback have named owners."],
+        ["Luxe\nWeeks 13-16*", "Premium shoppers; personalized service is part of the proposition.", "Discretion and continuity; concierge-led service with AI assistance.", "Concierge owner accepts assist scope, policy boundaries and quality results."]
+      ]
+    },
+    "lead": "*Readiness gates govern each window. Luxe is assist-only. Reorder if another brand offers better value and readiness.",
+    "body": "One live pilot at a time; preparation runs in parallel. Week 4 acceptance is provisional until final recontacts mature in Week 5; unmet gates shift dates.",
+    "decision": "Confirm flagship value, then authorize a bounded pilot. Choose based on proposition fit, readiness evidence and risk controls.",
+    "note": "Source: scenario brand profiles. Customer preferences, pricing positions and windows are assumptions.",
+    "talkingPoint": "Essentials leads with clear value fit—fast support for price-conscious buyers. Style and Home follow with specific readiness gates."
+  },
+  {
+    "kind": "pipeline",
+    "title": "Brand-fit evidence shows strong automation potential",
+    "subtitle": "M4 Pipeline brands with proposition alignment",
+    "brands": [
+      {"name": "Essentials", "proposition": "Value-conscious buyers", "service": "Fast bot-led support", "evidence": "168.5%"},
+      {"name": "Style", "proposition": "Fashion shoppers", "service": "Fit and exchange automation", "evidence": "142.3%"},
+      {"name": "Home", "proposition": "Considered purchases", "service": "System lookups + specialists", "evidence": "118.7%"},
+      {"name": "Luxe", "proposition": "Premium service", "service": "AI-assisted concierge", "evidence": "95.2%"}
+    ],
+    "decision": "Essentials shows 168.5% brand-fit score, making it the strongest automation candidate. Style and Home follow with readiness checks required.",
+    "note": "Evidence percentages represent brand-fit alignment with automation potential, not actual automation rates.",
+    "talkingPoint": "The pipeline analysis prioritizes brands by their alignment with AI capabilities and service model fit."
+  },
+  {
+    "kind": "pilot",
+    "title": "Confirm flagship value, then authorize a bounded pilot",
+    "subtitle": "M5 Decision criteria Owner assignments and provisional gates",
+    "sections": [
+      {"heading": "Flagship assessment", "text": "Complete full-cost accounting and benefit validation. If net value is positive, authorize expansion planning."},
+      {"heading": "Pilot scope", "text": "Single brand, 4-week test, reversible. Measure automation rate, quality, cost per ticket, and customer satisfaction."},
+      {"heading": "Risk controls", "text": "Policy owner review, peak-load tests, rollback plan. Human oversight on all AI recommendations until proven."}
+    ],
+    "commitments": [
+      {
+        "issue": "Complete flagship cost analysis",
+        "proposedDueDate": "Week 1",
+        "owner": "Finance lead",
+        "status": "Not started",
+        "deadline": "2026-09-15",
+        "consequence": "Cannot authorize expansion without ROI evidence",
+        "evidence": "Full P&L with infrastructure, ops, and support costs"
+      },
+      {
+        "issue": "Essentials pilot readiness",
+        "proposedDueDate": "Week 2",
+        "owner": "Operations lead",
+        "status": "In progress",
+        "deadline": "2026-09-22",
+        "consequence": "Delays pilot launch if gates not met",
+        "evidence": "Policy signoff, isolation tests pass, peak-load tests pass"
+      },
+      {
+        "issue": "Pilot launch decision",
+        "proposedDueDate": "Week 3",
+        "owner": "Executive sponsor",
+        "status": "Pending",
+        "deadline": "2026-09-29",
+        "consequence": "Expansion timeline depends on this go/no-go",
+        "evidence": "Flagship ROI positive, Essentials gates passed, risk controls in place"
+      }
+    ],
+    "fullGates": [
+      "Policy owner signoff on Essentials service boundaries",
+      "Isolation tests pass: no cross-brand policy leakage",
+      "Peak-load tests pass: 3x baseline volume, <200ms P95",
+      "Rollback plan validated with operations team"
+    ],
+    "decision": "If flagship value is confirmed, authorize Essentials pilot with full monitoring and rollback capability.",
+    "note": "Expansion beyond Essentials requires individual readiness assessment and executive approval.",
+    "talkingPoint": "The gated approach ensures each brand expansion is evidence-based, with clear owners, deadlines, and risk mitigation."
+  }
+]
