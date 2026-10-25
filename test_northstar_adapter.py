@@ -4,7 +4,7 @@
 import json
 import unittest
 from pathlib import Path
-from northstar_adapter import NorthstarAdapter, load_northstar_json
+from northstar_adapter import NorthstarAdapter, load_json
 
 
 class TestNorthstarAdapter(unittest.TestCase):
@@ -12,123 +12,137 @@ class TestNorthstarAdapter(unittest.TestCase):
 
     def setUp(self):
         """Load example Northstar data."""
-        self.example_path = Path(__file__).parent / 'artifacts' / 'example-northstar-data.json'
-        self.northstar_data = load_northstar_json(self.example_path)
+        self.example_path = Path(__file__).parent / 'artifacts' / 'example-northstar-array.json'
+        self.northstar_data = load_json(self.example_path)
         self.adapter = NorthstarAdapter()
 
     def test_example_data_exists(self):
         """Verify example data file exists and loads."""
         self.assertTrue(self.example_path.exists(), "Example data file missing")
-        self.assertIsInstance(self.northstar_data, dict)
-        self.assertIn('cover', self.northstar_data)
-        self.assertIn('performance', self.northstar_data)
-        self.assertIn('cost', self.northstar_data)
-        self.assertIn('readiness', self.northstar_data)
-        self.assertIn('decisions', self.northstar_data)
+        self.assertIsInstance(self.northstar_data, list)
+        self.assertEqual(len(self.northstar_data), 5)
+
+        # Verify all slide kinds present
+        kinds = {slide['kind'] for slide in self.northstar_data}
+        self.assertEqual(kinds, {'summary', 'performance', 'economics', 'pipeline', 'pilot'})
 
     def test_full_conversion(self):
         """Test complete conversion with example data."""
-        result = self.adapter.convert(self.northstar_data)
+        performance, cost, readiness, pipeline, decisions = self.adapter.convert(self.northstar_data)
 
-        self.assertTrue(result.is_valid, f"Conversion failed: {result.errors}")
-        self.assertIsNotNone(result.data)
-        self.assertEqual(len(result.errors), 0)
-
-    def test_cover_conversion(self):
-        """Test cover slide conversion."""
-        result = self.adapter.convert(self.northstar_data)
-        cover = result.data.cover
-
-        self.assertEqual(cover.title, "NORTHSTAR / CLIENT BUSINESS REVIEW")
-        self.assertIn("M1", cover.subtitle)
+        self.assertIsNotNone(performance)
+        self.assertIsNotNone(cost)
+        self.assertIsNotNone(readiness)
+        self.assertIsNotNone(pipeline)
+        self.assertIsNotNone(decisions)
+        self.assertEqual(len(self.adapter.errors), 0)
 
     def test_performance_conversion(self):
-        """Test performance slide conversion."""
-        result = self.adapter.convert(self.northstar_data)
-        perf = result.data.performance
+        """Test summary → performance slide conversion."""
+        performance, cost, readiness, pipeline, decisions = self.adapter.convert(self.northstar_data)
 
-        self.assertEqual(len(perf.metrics), 3)
-        self.assertEqual(perf.metrics[0][0], "70%")
-        self.assertEqual(perf.metrics[0][1], "Tier-1 volume handled")
-        self.assertIn("97,488", perf.statement)
+        # Verify metrics
+        self.assertEqual(len(performance.metrics), 3)
+        self.assertEqual(performance.metrics[0][0], "70%")
+        self.assertEqual(performance.metrics[0][1], "Tier-1 volume handled")
+
+        # Verify narrative fields (lead AND body mapped)
+        self.assertIn("97,488", performance.statement)
+        self.assertIn("789,563", performance.body)
+
+        # Verify speaker notes separate from footer
+        self.assertIn("Automation rose from", performance.notes)
+        self.assertIn("Source: supplied", performance.footer)
 
     def test_cost_conversion(self):
-        """Test cost slide conversion."""
-        result = self.adapter.convert(self.northstar_data)
-        cost = result.data.cost
+        """Test performance → cost slide conversion."""
+        performance, cost, readiness, pipeline, decisions = self.adapter.convert(self.northstar_data)
 
-        self.assertIsNone(cost.chart_data, "Example has null chart_data")
+        # Verify chart data
+        self.assertIsNotNone(cost.chart_data)
+        self.assertEqual(len(cost.chart_data['categories']), 4)
+        self.assertEqual(cost.chart_data['values'][0], 65.8)
+
+        # Verify table
         self.assertEqual(len(cost.table_headers), 3)
         self.assertGreater(len(cost.table_rows), 0)
         self.assertEqual(cost.table_rows[0][0], "Model requests")
 
-    def test_readiness_conversion(self):
-        """Test readiness slide conversion."""
-        result = self.adapter.convert(self.northstar_data)
-        ready = result.data.readiness
+        # Verify speaker notes
+        self.assertIn("Request volume grew", cost.notes)
 
-        self.assertEqual(len(ready.table_headers), 4)
-        self.assertEqual(len(ready.phases), 4)
-        self.assertIn("Essentials", ready.phases[0][0])
+    def test_readiness_conversion(self):
+        """Test economics → readiness slide conversion."""
+        performance, cost, readiness, pipeline, decisions = self.adapter.convert(self.northstar_data)
+
+        # Verify table
+        self.assertEqual(len(readiness.table_headers), 4)
+        self.assertEqual(len(readiness.phases), 4)
+        self.assertIn("Essentials", readiness.phases[0][0])
+
+        # Verify note field has lead AND body
+        self.assertIn("Readiness gates", readiness.note)
+        self.assertIn("One live pilot", readiness.note)
+
+        # Verify speaker notes
+        self.assertIn("Essentials leads", readiness.notes)
+
+    def test_pipeline_conversion(self):
+        """Test pipeline slide conversion (5th slide)."""
+        performance, cost, readiness, pipeline, decisions = self.adapter.convert(self.northstar_data)
+
+        # Verify brands
+        self.assertEqual(len(pipeline.rows), 4)
+        self.assertEqual(pipeline.rows[0][0], "Essentials")
+        self.assertEqual(pipeline.rows[0][3], "168.5%")
+
+        # Verify speaker notes
+        self.assertIn("pipeline analysis", pipeline.notes)
 
     def test_decisions_conversion(self):
-        """Test decisions slide conversion."""
-        result = self.adapter.convert(self.northstar_data)
-        decisions = result.data.decisions
+        """Test pilot → decisions slide conversion."""
+        performance, cost, readiness, pipeline, decisions = self.adapter.convert(self.northstar_data)
 
+        # Verify decision boxes
         self.assertEqual(len(decisions.decision_boxes), 3)
-        self.assertEqual(len(decisions.timeline), 4)
-        self.assertIn("VP CX", decisions.owners)
+        self.assertIn("Flagship assessment", decisions.decision_boxes[0][0])
 
-    def test_missing_cover(self):
-        """Test error handling for missing cover."""
-        bad_data = {k: v for k, v in self.northstar_data.items() if k != 'cover'}
-        result = self.adapter.convert(bad_data)
+        # Verify timeline with commitment qualifications
+        self.assertEqual(len(decisions.timeline), 3)
+        self.assertIn("Week 1", decisions.timeline[0][0])
+        self.assertIn("Status:", decisions.timeline[0][1])
+        self.assertIn("Deadline:", decisions.timeline[0][1])
+        self.assertIn("Consequence:", decisions.timeline[0][1])
 
-        self.assertFalse(result.is_valid)
-        self.assertIn("cover", str(result.errors).lower())
+        # Verify speaker notes include fullGates
+        self.assertIn("Full gates:", decisions.notes)
+        self.assertIn("Policy owner signoff", decisions.notes)
 
-    def test_missing_performance(self):
-        """Test error handling for missing performance."""
-        bad_data = {k: v for k, v in self.northstar_data.items() if k != 'performance'}
-        result = self.adapter.convert(bad_data)
+    def test_missing_slides_error(self):
+        """Test error handling for missing required slides."""
+        # Remove summary slide
+        bad_data = [s for s in self.northstar_data if s['kind'] != 'summary']
+        self.adapter.convert(bad_data)
 
-        self.assertFalse(result.is_valid)
-        self.assertIn("performance", str(result.errors).lower())
+        self.assertGreater(len(self.adapter.errors), 0)
+        self.assertIn("summary", str(self.adapter.errors).lower())
 
     def test_chart_data_optional(self):
-        """Test that chart_data can be null."""
-        # Example already has null chart_data
-        result = self.adapter.convert(self.northstar_data)
-        self.assertTrue(result.is_valid)
-        self.assertIsNone(result.data.cost.chart_data)
+        """Test that chart_data can be missing."""
+        # Remove chart from performance slide
+        data_no_chart = []
+        for slide in self.northstar_data:
+            if slide['kind'] == 'performance':
+                slide_copy = slide.copy()
+                slide_copy.pop('chart', None)
+                data_no_chart.append(slide_copy)
+            else:
+                data_no_chart.append(slide)
 
-    def test_chart_data_with_values(self):
-        """Test chart_data with actual values."""
-        data_with_chart = self.northstar_data.copy()
-        data_with_chart['cost'] = data_with_chart['cost'].copy()
-        data_with_chart['cost']['chart_data'] = {
-            'categories': ['Day 1', 'Day 2', 'Day 3'],
-            'values': [1500, 1600, 1550],
-            'title': 'P95 Latency',
-            'mean_line': 1550
-        }
-
-        result = self.adapter.convert(data_with_chart)
-        self.assertTrue(result.is_valid)
-        self.assertIsNotNone(result.data.cost.chart_data)
-        self.assertEqual(len(result.data.cost.chart_data['categories']), 3)
-
-    def test_metrics_count_warning(self):
-        """Test warning for incorrect metrics count."""
-        data_bad_metrics = self.northstar_data.copy()
-        data_bad_metrics['performance'] = data_bad_metrics['performance'].copy()
-        data_bad_metrics['performance']['metrics'] = [["50%", "Single metric", "context"]]
-
-        result = self.adapter.convert(data_bad_metrics)
-        self.assertTrue(result.is_valid, "Should still be valid")
-        self.assertGreater(len(result.warnings), 0, "Should have warning")
-        self.assertIn("3 metrics", str(result.warnings))
+        performance, cost, readiness, pipeline, decisions = self.adapter.convert(data_no_chart)
+        self.assertEqual(len(self.adapter.errors), 0)
+        # Chart data should still work, just without values
+        self.assertIsNotNone(cost)
 
 
 class TestEndToEnd(unittest.TestCase):
@@ -138,7 +152,7 @@ class TestEndToEnd(unittest.TestCase):
         """Test full pipeline: JSON → Adapter → PowerPoint."""
         from ebr_generator_clean import CleanEBRDeck
 
-        example_path = Path(__file__).parent / 'artifacts' / 'example-northstar-data.json'
+        example_path = Path(__file__).parent / 'artifacts' / 'example-northstar-array.json'
         output_path = Path(__file__).parent / 'test_northstar_output.pptx'
 
         # Clean up any previous test output
@@ -147,20 +161,20 @@ class TestEndToEnd(unittest.TestCase):
 
         try:
             # Load and convert
-            northstar_data = load_northstar_json(example_path)
+            northstar_data = load_json(example_path)
             adapter = NorthstarAdapter()
-            result = adapter.convert(northstar_data)
+            performance, cost, readiness, pipeline, decisions = adapter.convert(northstar_data)
 
-            self.assertTrue(result.is_valid, f"Conversion failed: {result.errors}")
+            self.assertEqual(len(adapter.errors), 0, f"Conversion failed: {adapter.errors}")
 
             # Generate deck
             deck = CleanEBRDeck()
             deck.build(
-                cover=result.data.cover,
-                performance=result.data.performance,
-                cost=result.data.cost,
-                readiness=result.data.readiness,
-                decisions=result.data.decisions
+                performance=performance,
+                cost=cost,
+                readiness=readiness,
+                pipeline=pipeline,
+                decisions=decisions
             )
             deck.save(str(output_path))
 
@@ -170,6 +184,89 @@ class TestEndToEnd(unittest.TestCase):
 
         finally:
             # Clean up
+            if output_path.exists():
+                output_path.unlink()
+
+    def test_slide_count(self):
+        """Test that output has exactly 5 slides."""
+        from pptx import Presentation
+        from ebr_generator_clean import CleanEBRDeck
+
+        example_path = Path(__file__).parent / 'artifacts' / 'example-northstar-array.json'
+        output_path = Path(__file__).parent / 'test_northstar_5slides.pptx'
+
+        if output_path.exists():
+            output_path.unlink()
+
+        try:
+            northstar_data = load_json(example_path)
+            adapter = NorthstarAdapter()
+            performance, cost, readiness, pipeline, decisions = adapter.convert(northstar_data)
+
+            deck = CleanEBRDeck()
+            deck.build(
+                performance=performance,
+                cost=cost,
+                readiness=readiness,
+                pipeline=pipeline,
+                decisions=decisions
+            )
+            deck.save(str(output_path))
+
+            # Load and verify slide count
+            prs = Presentation(str(output_path))
+            self.assertEqual(len(prs.slides), 5, "Expected exactly 5 slides")
+
+        finally:
+            if output_path.exists():
+                output_path.unlink()
+
+    def test_sentinel_values(self):
+        """Test that unique sentinel values appear in output."""
+        from pptx import Presentation
+        from ebr_generator_clean import CleanEBRDeck
+
+        example_path = Path(__file__).parent / 'artifacts' / 'example-northstar-array.json'
+        output_path = Path(__file__).parent / 'test_northstar_sentinels.pptx'
+
+        if output_path.exists():
+            output_path.unlink()
+
+        try:
+            northstar_data = load_json(example_path)
+            adapter = NorthstarAdapter()
+            performance, cost, readiness, pipeline, decisions = adapter.convert(northstar_data)
+
+            deck = CleanEBRDeck()
+            deck.build(
+                performance=performance,
+                cost=cost,
+                readiness=readiness,
+                pipeline=pipeline,
+                decisions=decisions
+            )
+            deck.save(str(output_path))
+
+            # Load presentation and extract all text
+            prs = Presentation(str(output_path))
+            all_text = []
+            for slide in prs.slides:
+                for shape in slide.shapes:
+                    if hasattr(shape, "text"):
+                        all_text.append(shape.text)
+                # Check speaker notes
+                if slide.has_notes_slide:
+                    notes_text = slide.notes_slide.notes_text_frame.text
+                    all_text.append(notes_text)
+
+            full_text = ' '.join(all_text)
+
+            # Test unique values per slide
+            self.assertIn("168.5%", full_text, "Pipeline evidence missing")
+            self.assertIn("97,488", full_text, "Performance statement missing")
+            self.assertIn("789,563", full_text, "Performance body missing")
+
+        finally:
             if output_path.exists():
                 output_path.unlink()
 
