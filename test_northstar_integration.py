@@ -38,23 +38,21 @@ def test_real_json_structure(real_slides):
 def test_five_content_slides(real_slides):
     """Test five content slides in correct order."""
     adapter = NorthstarAdapter()
-    performance, cost, readiness, decisions = adapter.convert(real_slides)
+    performance, cost, readiness, pipeline, decisions = adapter.convert(real_slides)
 
-    # Should have 4 slides (pipeline skipped)
+    # Should have 5 slides
     assert performance is not None, "Summary → Performance slide"
     assert cost is not None, "Performance → Cost slide"
     assert readiness is not None, "Economics → Readiness slide"
     assert decisions is not None, "Pilot → Decisions slide"
 
-    # Pipeline skipped warning
-    assert len(adapter.warnings) == 1
-    assert 'pipeline' in adapter.warnings[0].lower()
+    assert pipeline is not None, "Pipeline → Pipeline slide"
 
 
 def test_content_preservation(real_slides):
     """Test that titles, metrics, and content survive conversion."""
     adapter = NorthstarAdapter()
-    performance, cost, readiness, decisions = adapter.convert(real_slides)
+    performance, cost, readiness, pipeline, decisions = adapter.convert(real_slides)
 
     # Check performance slide (from summary)
     assert 'flagship' in performance.title.lower()
@@ -81,7 +79,7 @@ def test_content_preservation(real_slides):
 def test_chart_data_preservation(real_slides):
     """Test latency chart values, dates, units preserved."""
     adapter = NorthstarAdapter()
-    _, cost, _, _ = adapter.convert(real_slides)
+    _, cost, _, _, _ = adapter.convert(real_slides)
 
     assert cost.chart_data is not None
     chart = cost.chart_data
@@ -102,7 +100,7 @@ def test_chart_data_preservation(real_slides):
 def test_owner_and_dates_preserved(real_slides):
     """Test owners, proposed dates, and commitments survive."""
     adapter = NorthstarAdapter()
-    _, _, _, decisions = adapter.convert(real_slides)
+    _, _, _, _, decisions = adapter.convert(real_slides)
 
     # Timeline should have dates and content
     assert len(decisions.timeline) > 0
@@ -118,25 +116,25 @@ def test_owner_and_dates_preserved(real_slides):
 def test_talking_points_in_notes(real_slides):
     """Test talkingPoint and fullGates in speaker notes."""
     adapter = NorthstarAdapter()
-    performance, cost, readiness, decisions = adapter.convert(real_slides)
+    performance, cost, readiness, pipeline, decisions = adapter.convert(real_slides)
 
     # Check if notes contain talking points
     all_notes = [
-        performance.footer,
-        cost.footer,
-        readiness.footer,
-        decisions.footer
+        performance.notes,
+        cost.notes,
+        readiness.notes,
+        pipeline.notes,
+        decisions.notes
     ]
 
-    # At least one should have talking point
-    has_talking_point = any('talking point' in n.lower() if n else False for n in all_notes)
-    assert has_talking_point, "Talking points should be preserved in notes"
+    # All slides should have notes (talkingPoint content)
+    assert all(notes and len(notes) > 0 for notes in all_notes), "All slides should have notes with talkingPoint content"
 
 
 def test_168_percent_regression_case(real_slides):
     """Test 168.5% requests-per-ticket metric preserved."""
     adapter = NorthstarAdapter()
-    _, cost, _, _ = adapter.convert(real_slides)
+    _, cost, _, _, _ = adapter.convert(real_slides)
 
     # Check if 168.5% appears in table or annotation
     table_text = ' '.join(' '.join(row) for row in cost.table_rows)
@@ -201,7 +199,7 @@ def test_automation_script():
 def test_editable_chart_native():
     """Test chart is native and editable (not image)."""
     adapter = NorthstarAdapter()
-    performance, cost, readiness, decisions = adapter.convert(load_json(REAL_JSON))
+    performance, cost, readiness, pipeline, decisions = adapter.convert(load_json(REAL_JSON))
 
     from ebr_generator_clean import CleanEBRDeck
 
@@ -237,7 +235,7 @@ def test_editable_chart_native():
 def test_editable_tables_native():
     """Test tables are native PowerPoint tables."""
     adapter = NorthstarAdapter()
-    performance, cost, readiness, decisions = adapter.convert(load_json(REAL_JSON))
+    performance, cost, readiness, pipeline, decisions = adapter.convert(load_json(REAL_JSON))
 
     from ebr_generator_clean import CleanEBRDeck
 
@@ -273,7 +271,7 @@ def test_no_internal_commercial_content():
     # that wasn't in the Northstar JSON
 
     adapter = NorthstarAdapter()
-    performance, cost, readiness, decisions = adapter.convert(load_json(REAL_JSON))
+    performance, cost, readiness, pipeline, decisions = adapter.convert(load_json(REAL_JSON))
 
     # All text should come from original JSON
     all_text = [
