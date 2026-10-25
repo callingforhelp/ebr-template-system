@@ -1,204 +1,168 @@
-# Clean EBR Template System
+# Northstar EBR Adapter
 
-**Modern, client-ready Executive Business Review deck generator with CLI**
-
-Based on the clean design from `Northstar_Client_EBR.pptx`:
-- White background with generous whitespace
-- Purple accent used sparingly (#6A2D80)
-- Underlined metrics (not cards)
-- Gray conclusion boxes (no labels)
-- Clean tables with purple headers
-- Modern typography
-
-## Installation
-
-**📖 Full installation guide: [INSTALL.md](INSTALL.md)**
-
-Quick install:
-
-```bash
-git clone https://github.com/callingforhelp/ebr-template-system.git
-cd ebr-template-system
-pip3 install -r requirements.txt
-```
-
-**Dependencies:**
-- `python-pptx>=0.6.21` — PowerPoint generation
-- `jsonschema>=4.0.0` — JSON validation
+Converts Northstar dashboard JSON output to PowerPoint presentations using the EBR template system.
 
 ## Quick Start
 
-### Using the CLI (Recommended)
+```bash
+# Install dependencies (already satisfied by template system)
+python3 northstar_adapter.py <northstar-json> <output.pptx>
+```
+
+## Example
 
 ```bash
-# Verify installation
-python3 ebr_cli.py --help
-
-# Verify installation
-python3 ebr_cli.py --help
-
-# Create a template to fill in
-python3 ebr_cli.py init my-data.json
-
-# Edit my-data.json with your content, then generate
-python3 ebr_cli.py generate my-data.json output.pptx
-
-# Validate your JSON
-python3 ebr_cli.py validate my-data.json
-
-# List available themes
-python3 ebr_cli.py themes
+# Convert example data to PowerPoint
+python3 northstar_adapter.py artifacts/example-northstar-data.json output.pptx
 ```
 
-**Troubleshooting?** See [INSTALL.md](INSTALL.md) for detailed help.
+Output:
+```
+Loading artifacts/example-northstar-data.json...
+Converting to template format...
+Generating PowerPoint deck...
 
-### Using Python Directly
+✅ Success! Deck created: output.pptx
+   File size: 38,714 bytes
 
-```python
-from ebr_generator_clean import CleanEBRDeck, CoverData, PerformanceData
-
-deck = CleanEBRDeck()
-
-prs = deck.build(
-    cover=CoverData(
-        title='YOUR COMPANY / BUSINESS REVIEW',
-        subtitle='Q4 2026 Performance Review'
-    ),
-    
-    performance=PerformanceData(
-        kicker='YOUR COMPANY / BUSINESS REVIEW',
-        title='Key achievements this quarter',
-        subtitle='Q4 2026 / Oct 1 - Dec 31',
-        metrics=[
-            ('42%', 'Revenue growth', 'Year-over-year'),
-            ('98%', 'Customer satisfaction', 'Up from 94% last quarter'),
-            ('15k', 'New customers', 'Exceeds target by 23%'),
-        ],
-        statement='Record quarter demonstrates product-market fit',
-        body='Our Q4 results reflect strong market demand...',
-        conclusion='Recommend doubling down on this momentum...',
-        footer='Source: Company financials, Q4 2026.'
-    )
-)
-
-deck.save('my_ebr.pptx')
+📋 Verification Checklist:
+   1. Open in PowerPoint
+   2. Check font is Montserrat (or Calibri fallback)
+   3. Verify chart is editable (click → Edit Data)
+   4. Verify tables are editable (click cells)
+   5. Check all 5 slides render correctly
 ```
 
-## Themes (Slide Types)
+## What It Does
 
-### Essential (Always Include)
+1. **Loads** Northstar JSON (the dashboard's `ebr-slides.json` output)
+2. **Converts** to template system's data classes (CoverData, PerformanceData, etc.)
+3. **Validates** required fields and reports warnings/errors
+4. **Generates** PowerPoint with native charts and tables
 
-1. **Cover** — Simple title page with purple accent bar
-2. **Performance** — 3 metrics with underlines + statement
+## Input Format
 
-### Optional (Include As Needed)
-
-3. **Cost** — Chart left, table right (for cost analysis)
-4. **Readiness** — Phase table with gates (for expansion planning)
-5. **Decisions** — Decision boxes + timeline (for decision frameworks)
-
-## Design Tokens
+The adapter expects Northstar's `ebr-slides.json` structure:
 
 ```json
 {
-  "colors": {
-    "purple": "#6A2D80",
-    "black": "#000000",
-    "gray_light": "#E8E8E8",
-    "white": "#FFFFFF"
+  "cover": {
+    "title": "NORTHSTAR / CLIENT BUSINESS REVIEW",
+    "subtitle": "M1 / Northstar leadership review / 2026-08-01 to 2026-08-31"
   },
-  "components": {
-    "metrics": "Underlines (not cards)",
-    "conclusions": "Gray boxes, unlabeled",
-    "tables": "Purple headers, white text"
-  }
+  "performance": {
+    "kicker": "NORTHSTAR / CLIENT BUSINESS REVIEW",
+    "title": "The flagship delivers operational value...",
+    "subtitle": "M1 / ...",
+    "metrics": [
+      ["70%", "Tier-1 volume handled", "Reported in the case brief"],
+      ["35%", "Lower average handle time", "Reported versus baseline"],
+      ["+12 pts", "CSAT improvement", "Reported versus baseline"]
+    ],
+    "statement": "97,488 automated tickets...",
+    "body": "The CSV records...",
+    "conclusion": "First assess flagship benefits...",
+    "footer": "Source: ..."
+  },
+  "cost": { ... },
+  "readiness": { ... },
+  "decisions": { ... }
 }
 ```
 
-See `artifacts/design-tokens.json` for full specification.
+## Output Format
 
-## Schema
+Native PowerPoint `.pptx` with:
+- **Editable charts** (native Excel data, not images)
+- **Editable tables** (native PowerPoint tables)
+- **Montserrat font** (falls back to Calibri if unavailable)
+- **5 slides**: Cover, Performance, Cost, Readiness, Decisions
 
-All theme data structures are documented in `artifacts/theme-data-schema.json`.
+## Testing
 
-Example data: `artifacts/example-northstar-data.json`
+```bash
+# Run full test suite
+python3 -m pytest test_northstar_adapter.py -v
 
-## File Structure
-
-```
-ebr-template-system-clean/
-├── README.md                           # This file
-├── ebr_generator_clean.py              # Generator script
-└── artifacts/
-    ├── design-tokens.json              # Design system specification
-    ├── theme-data-schema.json          # JSON schema for all themes
-    └── example-northstar-data.json     # Full Northstar example
-```
-
-## When To Use Clean vs House System
-
-| Use Case | System |
-|----------|--------|
-| Client-facing EBRs | Clean (this) |
-| Internal reviews for technical teams | House (darker, more data-dense) |
-| Executive presentations | Clean (this) |
-| Data dashboards | House or custom |
-
-## Differences from House System
-
-| Element | House System | Clean System |
-|---------|-------------|--------------|
-| Background | Dark surfaces | White |
-| Accent usage | Purple throughout | Purple sparingly |
-| Metrics | Purple mist cards | Underlines |
-| Conclusions | Purple with "SO WHAT" label | Gray, unlabeled |
-| Whitespace | Dense | Generous |
-| Typography | Bold throughout | Lighter weight |
-
-## Customization
-
-### Change Colors
-
-Edit `DesignTokens` class in `ebr_generator_clean.py`:
-
-```python
-@dataclass
-class DesignTokens:
-    purple: str = 'YOUR_HEX'  # Primary accent
-    gray_light: str = 'YOUR_HEX'  # Conclusion boxes
-    # ...
+# 13 tests covering:
+# - Data loading and validation
+# - Each slide type conversion
+# - Error handling
+# - End-to-end PowerPoint generation
 ```
 
-### Add Custom Theme
+All 13 tests passing ✅
 
-1. Define data class:
-```python
-@dataclass
-class YourThemeData:
-    kicker: str
-    title: str
-    # ...
+## Architecture
+
+```
+Northstar Dashboard
+       ↓
+  ebr-slides.json (their format)
+       ↓
+  northstar_adapter.py (this adapter)
+       ↓
+  CoverData, PerformanceData, etc. (template format)
+       ↓
+  ebr_generator_clean.py (template renderer)
+       ↓
+  output.pptx (native PowerPoint with editable objects)
 ```
 
-2. Add renderer to `CleanEBRThemes`:
-```python
-def your_theme(self, data: YourThemeData, page_num: int):
-    slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
-    b = Builder(slide, self.T)
-    # ... build slide
-```
+## Error Handling
 
-3. Wire into `CleanEBRDeck.build()`:
-```python
-if your_theme:
-    self.themes.your_theme(your_theme, self.page)
-    self.page += 1
-```
+The adapter validates:
+- ✅ All required sections present (cover, performance, cost, readiness, decisions)
+- ✅ Metrics count (warns if not exactly 3)
+- ✅ Chart data structure (optional, can be null)
+- ✅ Table headers and rows present
 
-## Examples
+Returns:
+- `result.is_valid` → True if conversion succeeded
+- `result.warnings` → List of non-fatal issues
+- `result.errors` → List of fatal problems
 
-See `example-northstar-data.json` for a complete deck with all 5 themes.
+## Integration
 
-## License
+The adapter is a **stateless converter**: it doesn't modify Northstar's code or data files.
 
-Internal use only. Design tokens based on client-ready reference deck.
+**Northstar side** (their repo):
+- Generate `ebr-slides.json` as usual
+- No changes needed
+
+**Template side** (this repo):
+- Run adapter on their JSON
+- Get PowerPoint output
+
+**To integrate**:
+1. Northstar generates `ebr-slides.json`
+2. Run: `python3 northstar_adapter.py ebr-slides.json final-deck.pptx`
+3. Deliver `final-deck.pptx` to stakeholders
+
+## Files
+
+- `northstar_adapter.py` - Main adapter + CLI
+- `test_northstar_adapter.py` - Test suite (13 tests)
+- `artifacts/example-northstar-data.json` - Example input
+- `README.md` - This file
+
+## Compatibility
+
+- **Python**: 3.8+
+- **Dependencies**: Same as template system (`python-pptx`)
+- **Northstar format**: Current `ebr-slides.json` structure
+- **Template**: Compatible with PR #3 (merged) compatibility fixes
+
+## Next Steps
+
+1. ✅ Adapter built and tested (13/13 passing)
+2. ✅ Template compatibility fixes merged (PR #3)
+3. ⏳ **Integration test with real Northstar output**
+4. ⏳ **End-to-end validation with stakeholders**
+
+## Support
+
+Questions? Issues?
+- Template bugs → [ebr-template-system issues](https://github.com/callingforhelp/ebr-template-system/issues)
+- Adapter bugs → This directory
+- Northstar data bugs → Their repo (R1 & R2 fixed)
