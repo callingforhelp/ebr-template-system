@@ -596,8 +596,10 @@ class CleanEBRThemes:
         b.text(table_left, note_y, 11.8, 0.3, data.note,
               10, False, self.T.purple, italic=True)
 
-        # Conclusion box
-        b.conclusion_box(data.conclusion, 6.1)
+        # Conclusion box positioned below note to avoid overlap with table
+        # note_y + note_height(0.3) + small gap(0.1) = safe position
+        conclusion_y = note_y + 0.4
+        b.conclusion_box(data.conclusion, conclusion_y)
 
         b.footer(data.footer)
         b.page_num(page_num)
@@ -615,12 +617,18 @@ class CleanEBRThemes:
         b.title(data.title)
         b.subtitle(data.subtitle)
 
-        # Left: Decision boxes
+        # Left: Decision boxes (limit to 3 to fit with conclusion box)
         box_left = self.T.margin_left
         box_w = 5.5
         box_y = 2.7
 
-        for heading, body in data.decision_boxes:
+        # Limit to 3 visible decision boxes to fit vertical space
+        # Available space from 2.7" to footer at ~7.0" with conclusion box
+        # 3 boxes × 1.15" = 3.45", ending at 6.15", leaves room for conclusion
+        MAX_DECISION_BOXES = 3
+        visible_boxes = data.decision_boxes[:MAX_DECISION_BOXES]
+
+        for heading, body in visible_boxes:
             b.rect(box_left, box_y, box_w, 0.95, self.T.gray_light)
             b.text(box_left + 0.2, box_y + 0.1, box_w - 0.4, 0.25,
                   heading, 11, True, self.T.purple)
@@ -680,8 +688,10 @@ class CleanEBRThemes:
         b.text(timeline_left, owners_y, timeline_w, 0.3, data.owners,
               9, False, self.T.gray_dark, italic=True)
 
-        # Conclusion box (stays at 6.15)
-        b.conclusion_box(data.conclusion, 6.15)
+        # Conclusion box positioned below decision boxes
+        # 3 boxes starting at 2.7", each 1.15" tall = ending at 6.15"
+        # Place conclusion at 6.25" to clear the third box
+        b.conclusion_box(data.conclusion, 6.25)
 
         b.footer(data.footer)
         b.page_num(page_num)
